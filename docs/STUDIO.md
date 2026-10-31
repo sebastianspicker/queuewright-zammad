@@ -94,8 +94,12 @@ existing records, and retains the legacy store for recovery.
 The active draft is validated and opened before background migrations run.
 At most two V1 migrations run concurrently; only successful V1 migrations are
 rewritten, without changing the active selection or overwriting intervening
-edits. Invalid records remain preserved for recovery, and a failed active draft
-opens a seed with a different ID. V2 library records are validated when opened.
+edits. A draft that the compiler rejects (for example one saved mid-edit while
+invalid) opens as stored, with the compiler message shown, so it can be fixed in
+the editor; exports stay disabled until it validates. A record that is not a
+readable Studio project, or one that cannot be validated because the local API
+is unreachable, is preserved untouched and the active slot opens a seed with a
+different ID. V2 library records are validated when opened.
 The interface has no delete-all control; clear the site's browser data to remove
 drafts.
 

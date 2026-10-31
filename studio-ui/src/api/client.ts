@@ -26,6 +26,11 @@ export class StudioApiError extends Error {
   }
 }
 
+/** True when the local compiler answered and rejected the project (not when it is unreachable). */
+export function isCompilerRejection(error: unknown): error is StudioApiError {
+  return error instanceof StudioApiError && error.status === 422
+}
+
 function isFeatureId(value: string): value is FeatureId {
   return (FEATURE_IDS as readonly string[]).includes(value)
 }

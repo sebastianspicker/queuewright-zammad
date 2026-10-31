@@ -6,12 +6,13 @@ const mocks = vi.hoisted(() => ({
   migrateLegacyDrafts: vi.fn(),
 }))
 
-vi.mock('../api/client', () => ({ api: { compile: mocks.compile } }))
+vi.mock('../api/client', async (importOriginal) => ({ ...await importOriginal<typeof import('../api/client')>(), api: { compile: mocks.compile } }))
 vi.mock('../persistence/drafts', () => ({
   loadActiveDraft: mocks.loadActiveDraft,
   migrateLegacyDrafts: mocks.migrateLegacyDrafts,
 }))
 
+import { StudioApiError } from '../api/client'
 import { staticDemoProject } from '../data'
 import { hydrateStudio } from './hydration'
 import { shouldScheduleAutomaticCompile } from './effects'
@@ -116,5 +117,44 @@ describe('active-first background hydration', () => {
       expect(action.active?.id).not.toBe(seedProject.id)
       expect(action.active?.id).toMatch(/^[a-z][a-z0-9_-]*$/)
     }
+  })
+
+  it('opens a stored draft that the compiler rejects so it can be fixed instead of quarantining it', async () => {
+    const stored = { ...staticDemoProject(), id: 'rejected-draft' }
+    mocks.loadActiveDraft.mockResolvedValue(stored)
+    mocks.compile.mockRejectedValue(new StudioApiError(422, { code: 'invalid_project', path: 'project', message: 'role x ACL must be a non-empty object' }))
+    mocks.migrateLegacyDrafts.mockResolvedValue([])
+    const dispatch = vi.fn<(action: Action) => void>()
+    await hydrateStudio(dispatch, () => false)
+    expect(dispatch).toHaveBeenNthCalledWith(1, { type: 'hydrate', active: stored, projects: [] })
+    expect(dispatch).toHaveBeenNthCalledWith(2, {
+      type: 'import:error',
+      message: expect.stringContaining('role x ACL must be a non-empty object'),
+    })
+    const hydrated = dispatch.mock.calls.reduce((state, [action]) => studioReducer(state, action), initialState)
+    expect(hydrated.project).toBe(stored)
+    expect(hydrated.result).toBeUndefined()
+    expect(shouldScheduleAutomaticCompile({ ...hydrated, demoMode: false })).toBe(true)
+  })
+
+  it('still quarantines unreadable records that the compiler rejects', async () => {
+    mocks.loadActiveDraft.mockResolvedValue({ project_schema_version: '2.0', id: 'broken', name: 'Broken' })
+    mocks.compile.mockRejectedValue(new StudioApiError(422, { code: 'invalid_project', path: 'project', message: 'invalid shape' }))
+    mocks.migrateLegacyDrafts.mockResolvedValue([])
+    const dispatch = vi.fn<(action: Action) => void>()
+    await hydrateStudio(dispatch, () => false)
+    const action = dispatch.mock.calls[0]?.[0]
+    expect(action?.type === 'hydrate' && action.active?.id).toMatch(/^recovery-/)
+  })
+
+  it('does not open a stored draft in fix mode when the compiler is unreachable', async () => {
+    const stored = { ...staticDemoProject(), id: 'valid-but-offline' }
+    mocks.loadActiveDraft.mockResolvedValue(stored)
+    mocks.compile.mockRejectedValue(new TypeError('fetch failed'))
+    mocks.migrateLegacyDrafts.mockResolvedValue([])
+    const dispatch = vi.fn<(action: Action) => void>()
+    await hydrateStudio(dispatch, () => false)
+    const action = dispatch.mock.calls[0]?.[0]
+    expect(action?.type === 'hydrate' && action.active?.id).toMatch(/^recovery-/)
   })
 })

@@ -1,9 +1,11 @@
 import type { Dispatch } from 'react'
-import { api } from '../api/client'
+import { api, isCompilerRejection } from '../api/client'
 import { loadActiveDraft, migrateLegacyDrafts } from '../persistence/drafts'
 import type { BlueprintCompileResult, StudioProjectV2 } from '../contracts'
-import { isV1Project, isV2Project } from '../contracts/runtime'
+import { isEditableV2Draft, isV1Project, isV2Project } from '../contracts/runtime'
 import { seedProject, type Action } from './reducer'
+
+export const REJECTED_DRAFT_NOTICE = 'Your last draft does not validate yet. It is open so you can fix it; exports stay disabled until it validates. Compiler message:'
 
 async function canonicalize(value: unknown): Promise<BlueprintCompileResult | undefined> {
   if (!isV1Project(value) && !isV2Project(value)) return undefined
@@ -23,10 +25,16 @@ export async function hydrateStudio(dispatch: Dispatch<Action>, cancelled: () =>
     if (cancelled()) return
     dispatch({ type: 'hydrate', active: canonicalActive ?? fallback(), projects: [], ...(result ? { result } : {}) })
     if (!canonicalActive) dispatch({ type: 'import:error', message: 'The stored active project was quarantined because authoritative validation failed.' })
-  } catch {
+  } catch (error) {
     if (cancelled()) return
-    dispatch({ type: 'hydrate', active: fallback(), projects: [] })
-    dispatch({ type: 'import:error', message: 'The loopback compiler is unavailable; the bundled project is open but exports stay disabled.' })
+    if (source !== seedProject && isCompilerRejection(error) && isEditableV2Draft(source)) {
+      // Reopen the rejected draft itself so the work can be fixed; exports stay disabled until it validates.
+      dispatch({ type: 'hydrate', active: source, projects: [] })
+      dispatch({ type: 'import:error', message: `${REJECTED_DRAFT_NOTICE} ${error.message}` })
+    } else {
+      dispatch({ type: 'hydrate', active: fallback(), projects: [] })
+      dispatch({ type: 'import:error', message: 'The loopback compiler is unavailable; the bundled project is open but exports stay disabled.' })
+    }
   }
   if (cancelled()) return
   // The active editor is ready before any unrelated migration/validation starts.

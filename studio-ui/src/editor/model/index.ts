@@ -15,8 +15,9 @@ export {
 export {
   HANDOFF_MODES,
   setHandoffModes,
+  isLastGroupAccess,
   permissionFor,
   setPermission,
 } from './access'
 export { resetFeatures, toggleFeature } from './features'
-export { replaceDecision, replaceOrganizationValue } from './workbook'
+export { replaceDecision, replaceOrganizationValue, requiredCapabilities } from './workbook'

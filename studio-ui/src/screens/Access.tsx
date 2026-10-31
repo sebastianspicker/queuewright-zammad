@@ -1,4 +1,4 @@
-import { displayGroupName, permissionFor, setPermission } from '../editor/model'
+import { displayGroupName, isLastGroupAccess, permissionFor, setPermission } from '../editor/model'
 import { useStudioProject } from '../editor/context'
 import { PageHeader, SectionHeading } from '../components/ui'
 import { memo, useCallback, useMemo } from 'react'
@@ -11,8 +11,10 @@ function roleLabel(role: RoleResource): string {
   return role.name.replace(/^.*?Role · /, '')
 }
 
-const PermissionCell = memo(function PermissionCell({ roleKey, roleName, leaf, leafName, permission, onChange }: {
-  roleKey: string; roleName: string; leaf: GroupResource; leafName: string; permission: Permission; onChange: PermissionChange
+const LAST_SERVICE_HINT = 'A role needs access to at least one service. Give it another service before removing this one.'
+
+const PermissionCell = memo(function PermissionCell({ roleKey, roleName, leaf, leafName, permission, lastService, onChange }: {
+  roleKey: string; roleName: string; leaf: GroupResource; leafName: string; permission: Permission; lastService: boolean; onChange: PermissionChange
 }) {
   return (
     <td data-level={permission}>
@@ -21,8 +23,9 @@ const PermissionCell = memo(function PermissionCell({ roleKey, roleName, leaf, l
         aria-label={`${roleName} on ${leafName}`}
         value={permission}
         onChange={(event) => onChange(roleKey, leaf.key, event.target.value as Permission)}
+        title={lastService ? LAST_SERVICE_HINT : undefined}
       >
-        {options.map((option) => <option value={option} key={option}>{option}</option>)}
+        {options.map((option) => <option value={option} key={option} disabled={lastService && option === 'none'}>{option}</option>)}
       </select>
     </td>
   )
@@ -36,7 +39,7 @@ const AccessRow = memo(function AccessRow({ role, leaves, names, onChange }: {
     <tr>
       <th scope="row">{label}</th>
       {leaves.map((leaf) => <PermissionCell key={leaf.key} roleKey={role.key} roleName={label}
-        leaf={leaf} leafName={names.get(leaf.key) ?? leaf.key} permission={permissionFor(role, leaf.key)} onChange={onChange} />)}
+        leaf={leaf} leafName={names.get(leaf.key) ?? leaf.key} permission={permissionFor(role, leaf.key)} lastService={isLastGroupAccess(role, leaf.key)} onChange={onChange} />)}
     </tr>
   )
 })

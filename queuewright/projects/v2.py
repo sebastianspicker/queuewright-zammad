@@ -225,8 +225,14 @@ def _decision_state(
     capability: dict[str, Any], current: Any, bundle: dict[str, Any], name: str
 ) -> tuple[bool, str]:
     current = current if isinstance(current, dict) else {}
-    enabled = current.get("enabled", _capability_enabled(capability["id"], bundle, name))
+    present = _capability_enabled(capability["id"], bundle, name)
+    enabled = current.get("enabled", present)
     completion = current.get("completion")
+    if capability["delivery"] == "automated" and present and not enabled:
+        # Automated capabilities follow the design: resources for them enable them.
+        # A disabled decision only ever carries the placeholder completion, so drop it.
+        enabled = True
+        completion = None
     if capability["delivery"] == "unsupported":
         enabled = False
         completion = "blocked"

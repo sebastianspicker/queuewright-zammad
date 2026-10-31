@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { addGroup, mutateProject, removeGroup, setPermission, toggleFeature, renameProject, setTargetSchema, renameGroup, moveGroup, reorderGroup, setRestricted, replaceDecision } from './model'
-import { bundledCatalog } from '../data'
+import { bundledCatalog, staticDemoProject } from '../data'
 import { initialState } from './reducer'
 
 function expectDraftShape(project: typeof initialState.project): void {
@@ -98,4 +98,32 @@ it('keeps optimized metadata and group edits equivalent to finalized mutation ca
   expect(moveGroup(source, 'missing', 'missing')).toBe(source)
   expect(reorderGroup(source, leaf.key, leaf.key)).toBe(source)
   expect(JSON.stringify(source)).toBe(before)
+})
+
+describe('access matrix keeps every role usable', () => {
+  it('refuses to remove the last service a role can access', async () => {
+    const { isLastGroupAccess } = await import('./model')
+    const project = staticDemoProject('blank')
+    const role = project.bundle.manifest.roles[0]!
+    const groups = [...new Set(Object.values(role.acl).flat())]
+    expect(groups).toHaveLength(1)
+    expect(isLastGroupAccess(role, groups[0]!)).toBe(true)
+    const edited = setPermission(project, role.key, groups[0]!, 'none')
+    expect(edited.bundle.manifest.roles[0]!.acl).toEqual(role.acl)
+    // Changing the level on that last service is still allowed.
+    expect(setPermission(project, role.key, groups[0]!, 'read').bundle.manifest.roles[0]!.acl).toEqual({ read: groups })
+  })
+
+  it('still removes a service from a role that keeps another one', async () => {
+    const { isLastGroupAccess } = await import('./model')
+    const blank = staticDemoProject('blank')
+    const source = blank.bundle.manifest.roles[0]!
+    const group = Object.values(source.acl).flat()[0]!
+    const added = addGroup(blank, 'leaf', 'service')
+    const project = setPermission(added.project, source.key, added.key, 'read')
+    const role = project.bundle.manifest.roles.find((item) => item.key === source.key)!
+    expect(isLastGroupAccess(role, group)).toBe(false)
+    const edited = setPermission(project, role.key, group, 'none')
+    expect(Object.values(edited.bundle.manifest.roles.find((item) => item.key === role.key)!.acl).flat()).not.toContain(group)
+  })
 })

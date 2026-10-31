@@ -1,5 +1,6 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useStudioProject } from '../editor/context'
+import { requiredCapabilities } from '../editor/model'
 import { Delta, PageHeader, SectionHeading } from '../components/ui'
 import { DecisionRow, isOpen } from './GovernanceDecisionRow'
 import { decisionsByDomain } from './governance-domains'
@@ -8,6 +9,7 @@ export function Governance() {
   const { project, updateProject } = useStudioProject()
   const [openOnly, setOpenOnly] = useState(false)
   const decisions = Object.entries(project.workbook.capability_decisions)
+  const required = useMemo(() => requiredCapabilities(project), [project])
   const open = decisions.filter(([, decision]) => isOpen(decision)).length
   const domains = decisionsByDomain(openOnly ? decisions.filter(([, decision]) => isOpen(decision)) : decisions)
   const manual = decisions.filter(([, decision]) => decision.enabled && decision.delivery === 'guided_manual').length
@@ -45,7 +47,7 @@ export function Governance() {
         <section className="governance-domain" aria-labelledby={`domain-${domain}`} key={domain}>
           <SectionHeading id={`domain-${domain}`}>{domain}</SectionHeading>
           {items.map(([id, decision]) => (
-            <DecisionRow project={project} decision={decision} id={id} key={id} updateProject={updateProject} />
+            <DecisionRow project={project} decision={decision} id={id} key={id} required={required.has(id)} updateProject={updateProject} />
           ))}
         </section>
       ))}

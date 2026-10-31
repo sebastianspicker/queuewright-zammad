@@ -22,6 +22,8 @@ const deliveryTag: Record<CapabilityDelivery, string> = {
   unsupported: 'tag is-blocked is-locked',
 }
 
+const REQUIRED_HINT = 'Required by this design: remove the services, fields or automations that use it before excluding it.'
+
 export function isOpen(decision: CapabilityDecision): boolean {
   return decision.enabled && (decision.completion === 'decision_required' || decision.completion === 'blocked')
 }
@@ -42,16 +44,21 @@ export function DecisionRow({
   project,
   decision,
   id,
+  required,
   updateProject,
 }: {
   project: ReturnType<typeof useStudio>['project']
   decision: CapabilityDecision
   id: string
+  /** The design's resources need this capability, so it cannot be excluded here. */
+  required: boolean
   updateProject: ReturnType<typeof useStudio>['updateProject']
 }) {
   const { deliveryIsLocked, deliveryHint, manualBoundary } = decisionPresentation(decision.delivery)
   const open = isOpen(decision)
   const name = title(id)
+  // A required capability that is currently excluded stays includable, so a rejected draft can be fixed.
+  const lockedOn = required && decision.enabled && !deliveryIsLocked
   return (
     <article className={open ? 'decision is-open' : decision.enabled ? 'decision' : 'decision is-excluded'} aria-label={name}>
       <div className="decision-title">
@@ -60,7 +67,7 @@ export function DecisionRow({
       </div>
       <div className="decision-controls">
         <label className="decision-include">
-          <input className="check" type="checkbox" checked={decision.enabled} disabled={deliveryIsLocked} onChange={(event) => { updateProject(replaceDecision(project, id, { enabled: event.target.checked })) }} aria-label={`Include ${name}`} title={deliveryHint} />
+          <input className="check" type="checkbox" checked={decision.enabled} disabled={deliveryIsLocked || lockedOn} onChange={(event) => { updateProject(replaceDecision(project, id, { enabled: event.target.checked })) }} aria-label={`Include ${name}`} title={lockedOn ? REQUIRED_HINT : deliveryHint} />
           <span aria-hidden="true">Include</span>
         </label>
         <select className="select decision-completion" value={decision.completion} disabled={decision.delivery === 'unsupported'} onChange={(event) => { updateProject(replaceDecision(project, id, { completion: event.target.value as CapabilityCompletion })) }} aria-label={`${name} completion`}>

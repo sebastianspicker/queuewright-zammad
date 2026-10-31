@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo, type Dispatch } from 'react'
-import { api } from '../api/client'
+import { api, isCompilerRejection } from '../api/client'
 import { blankBundle, exampleBundle, staticDemoProject } from '../data'
 import { loadDraft } from '../persistence/drafts'
-import { isV2Project } from '../contracts/runtime'
+import { isEditableV2Draft, isV2Project } from '../contracts/runtime'
 import type { FeatureId, StepId, StudioProjectV2 } from '../contracts'
 import { importFilesIntoStudio } from './import'
 import type { CompileRunner } from './effects'
@@ -47,6 +47,20 @@ export function createProjectCommandRunner(dispatch: Dispatch<Action>) {
   }
 }
 
+/** Open a library record canonically; a draft the compiler rejects opens as stored so it can be fixed. */
+export async function openStoredProject(id: string, signal: AbortSignal): Promise<CommandResult> {
+  const draft = await loadDraft(id)
+  signal.throwIfAborted()
+  if (!isV2Project(draft)) throw new Error('Stored project is not a canonical V2 record.')
+  try {
+    return { project: (await api.compile(draft, signal)).project }
+  } catch (error) {
+    // The id check keeps autosave from writing the reopened draft over a different record.
+    if (isCompilerRejection(error) && isEditableV2Draft(draft) && draft.id === id) return { project: draft }
+    throw error
+  }
+}
+
 export function useStudioCommands(state: State, dispatch: Dispatch<Action>, runCompile: CompileRunner): StudioCommands {
   const requests = useMemo(() => createProjectCommandRunner(dispatch), [dispatch])
   useEffect(() => requests.cancel, [requests])
@@ -68,13 +82,7 @@ export function useStudioCommands(state: State, dispatch: Dispatch<Action>, runC
   }, [dispatch, requests])
   const openProject = useCallback(async (id: string) => {
     if (staticDemo) return
-    await requests.run(async (signal) => {
-      const draft = await loadDraft(id)
-      signal.throwIfAborted()
-      if (!isV2Project(draft)) throw new Error('Stored project is not a canonical V2 record.')
-      const result = await api.compile(draft, signal)
-      return { project: result.project }
-    }, 'Stored project quarantined: ')
+    await requests.run((signal) => openStoredProject(id, signal), 'Stored project quarantined: ')
   }, [requests])
   const importFiles = useCallback(async (input: FileList | File[]) => {
     if (staticDemo) { dispatch({ type: 'import:error', message: 'Simulated action only. Import is available in the local Studio.' }); return }

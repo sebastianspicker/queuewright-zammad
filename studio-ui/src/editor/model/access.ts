@@ -53,6 +53,12 @@ export function permissionFor(role: RoleResource, group: string): Permission {
   return 'none'
 }
 
+/** True when `groupKey` is the only service the role can access; the compiler requires at least one. */
+export function isLastGroupAccess(role: RoleResource, groupKey: string): boolean {
+  const groups = new Set(Object.values(role.acl).flatMap((items) => items ?? []))
+  return groups.size === 1 && groups.has(groupKey)
+}
+
 export function setPermission(
   source: StudioProjectV2,
   roleKey: string,
@@ -61,6 +67,7 @@ export function setPermission(
 ): StudioProjectV2 {
   const role = source.bundle.manifest.roles.find((item) => item.key === roleKey)
   if (!role) return source
+  if (permission === 'none' && isLastGroupAccess(role, groupKey)) return source
   const updated = cloneJson(role)
   removeGroupPermission(updated, groupKey)
   addGroupPermission(updated, groupKey, permission)
