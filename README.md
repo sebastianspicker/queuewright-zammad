@@ -4,12 +4,42 @@ Queuewright validates local JSON descriptions of Zammad configuration and
 compiles deterministic symbolic plans for review. Queuewright Studio edits the
 same model through a loopback-only browser application.
 
+<details>
+<summary>Status and limitations</summary>
+
+**Project status:** Queuewright is an independent experimental project for offline Zammad
+configuration models and symbolic plans. Developed independently alongside my main
+professional work. The unpublished alpha is a starting point for evaluating and adapting
+configuration designs; formats and Studio workflows may change. It does not apply
+configuration to a tenant.
+
+**Disclaimer.** Plans, validation results and readiness labels are local design artifacts,
+not deployment or compliance approval. Administrators must verify the intended tenant
+behavior, permissions and operational consequences before implementing a design elsewhere.
+
+</details>
+
 The project is an unpublished alpha. File formats and Studio workflows may
 change before `1.0.0`.
 
 Queuewright does not discover tenants, read credentials, make outbound
 requests, or apply configuration. Plans, graphs, and `ready` states are local
 design artifacts, not evidence of tenant changes.
+
+## How it works
+
+```mermaid
+flowchart LR
+  JSON[Local configuration descriptions] --> Validate[Offline validation]
+  Validate --> Plan[Deterministic symbolic plan]
+  Studio[Studio editor] --> JSON
+  Plan --> Review[Administrator review]
+  Fixtures[Fictional bundled data] --> Demo[Static Studio demo]
+```
+
+CI checks Dependabot pull requests automatically; other builds and the Pages
+demo require manual dispatch. Security dependency scans run automatically.
+Tags and package publication remain manual; see [Releasing](RELEASING.md).
 
 ## Capabilities
 

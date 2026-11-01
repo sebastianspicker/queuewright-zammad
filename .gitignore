@@ -188,3 +188,10 @@ Thumbs.db
 
 # Local code-intelligence indexes
 .repowise/
+
+# Local audit and private investigation records
+/ALPHA_AUDIT_REPORT.md
+/*_LEDGER.md
+/*-LEDGER.md
+.private/
+/local-tests/

@@ -1,7 +1,8 @@
 # Release procedure
 
 Queuewright has no automated package-publication or GitHub Release workflow.
-The Pages workflow deploys only the client-side Studio demo. Tags, release
+The Pages workflow deploys only the client-side Studio demo, after manual
+dispatch from main. Branch and pull-request updates never deploy it. Tags, release
 notes, and any package publication are manual maintainer actions.
 
 Prepare a release from one reviewed commit and complete every applicable item

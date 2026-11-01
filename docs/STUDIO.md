@@ -122,7 +122,8 @@ Blueprint V2 and `POST /api/v2/compile` are the canonical application path.
 `npm --prefix studio-ui run build:demo` sets `VITE_STATIC_DEMO=true` and
 builds the client for the `/queuewright-zammad/` Pages base path. The demo uses
 bundled fictional data, simulates command-capable actions, and has no API or
-browser persistence. The Pages workflow deploys only `studio-ui/dist`.
+browser persistence. After manual dispatch from main, the Pages workflow
+deploys only `studio-ui/dist`.
 
 ## Interface conventions
 
