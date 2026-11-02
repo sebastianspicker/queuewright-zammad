@@ -37,6 +37,14 @@ PYTHONPATH=experimental/connected_control .venv/bin/python \
   experimental/connected_control/benchmarks/benchmark_ledger.py
 ```
 
+A run that a dead process left in `applying` is recovered through
+`resume_run`: once the run no longer holds a live lease, it moves to
+`outcome_ambiguous` when an intent has no outcome (resolve it with
+`reconcile`), otherwise to `partially_applied` (undo it with `rollback`). While
+its lease is live, the run is left unchanged because another process may still
+be applying it. A process that resumes after its lease expired stops at its
+next step if another process has changed the run's state.
+
 Lock rows remain lease and fencing coordination state rather than authenticated
 operational facts. The audit chain records lock lifecycle events without the
 raw fence or expiry. The owner-only ledger file boundary is therefore required

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable, Sequence
-from typing import Any, ClassVar
+from typing import Any
 
 from .control_connection import ControlConnectionMixin
 from .control_evidence import ControlEvidenceMixin
@@ -19,23 +19,6 @@ class ControlPlane(
     ControlRecoveryMixin,
     ControlEvidenceMixin,
 ):
-    STATES: ClassVar[set[str]] = {
-        "disconnected",
-        "connected",
-        "discovered",
-        "previewed",
-        "approved",
-        "applying",
-        "applied",
-        "verified",
-        "drift_detected",
-        "outcome_ambiguous",
-        "partially_applied",
-        "rolling_back",
-        "rolled_back",
-        "manual_recovery",
-    }
-
     def __init__(
         self,
         ledger: Ledger,

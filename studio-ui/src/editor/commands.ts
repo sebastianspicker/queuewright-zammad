@@ -23,6 +23,11 @@ export interface StudioCommands {
 
 interface CommandResult { project: StudioProjectV2; selectedGroup?: string }
 
+/** New and imported projects get their own storage key, so they never replace an existing draft. */
+export function withFreshId(project: StudioProjectV2): StudioProjectV2 {
+  return { ...project, id: `${project.id.replace(/-[0-9a-f]{8}$/, '')}-${crypto.randomUUID().slice(0, 8)}` }
+}
+
 /** Owns the lifetime of project-changing requests; the reducer also rejects
  * completions superseded by direct edits or a newer request. */
 export function createProjectCommandRunner(dispatch: Dispatch<Action>) {
@@ -77,7 +82,7 @@ export function useStudioCommands(state: State, dispatch: Dispatch<Action>, runC
     const source = kind === 'blank' ? blankBundle() : exampleBundle()
     await requests.run(async (signal) => {
       const result = await api.compile(source, signal)
-      return { project: result.project, selectedGroup: kind === 'blank' ? 'service_general' : 'student_services' }
+      return { project: withFreshId(result.project), selectedGroup: kind === 'blank' ? 'service_general' : 'student_services' }
     })
   }, [dispatch, requests])
   const openProject = useCallback(async (id: string) => {
@@ -87,7 +92,7 @@ export function useStudioCommands(state: State, dispatch: Dispatch<Action>, runC
   const importFiles = useCallback(async (input: FileList | File[]) => {
     if (staticDemo) { dispatch({ type: 'import:error', message: 'Simulated action only. Import is available in the local Studio.' }); return }
     dispatch({ type: 'import:error', message: undefined })
-    await requests.run(async () => ({ project: await importFilesIntoStudio(input) }))
+    await requests.run(async () => ({ project: withFreshId(await importFilesIntoStudio(input)) }))
   }, [dispatch, requests])
   const validateNow = useCallback(() => {
     if (staticDemo) { dispatch({ type: 'compile:error', message: 'Simulated action only. Authoritative validation requires the local Studio service.', revision: state.revision }); return }

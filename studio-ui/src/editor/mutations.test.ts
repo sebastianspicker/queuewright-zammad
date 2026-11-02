@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { addGroup, mutateProject, removeGroup, setPermission, toggleFeature, renameProject, setTargetSchema, renameGroup, moveGroup, reorderGroup, setRestricted, replaceDecision } from './model'
+import { addGroup, mutateProject, permissionFor, removeGroup, setPermission, toggleFeature, renameProject, setTargetSchema, renameGroup, moveGroup, reorderGroup, setRestricted, replaceDecision } from './model'
 import { bundledCatalog, staticDemoProject } from '../data'
 import { initialState } from './reducer'
 
@@ -125,5 +125,14 @@ describe('access matrix keeps every role usable', () => {
     expect(isLastGroupAccess(role, group)).toBe(false)
     const edited = setPermission(project, role.key, group, 'none')
     expect(Object.values(edited.bundle.manifest.roles.find((item) => item.key === role.key)!.acl).flat()).not.toContain(group)
+  })
+})
+
+describe('Access matrix permission display', () => {
+  it('shows every ACL key that grants a group, including change and overview, as access', () => {
+    expect(permissionFor({ key: 'r', name: 'R', acl: { change: ['it'] } } as never, 'it')).toBe('read')
+    expect(permissionFor({ key: 'r', name: 'R', acl: { overview: ['it'] } } as never, 'it')).toBe('read')
+    expect(permissionFor({ key: 'r', name: 'R', acl: { full: ['it'], overview: ['it'] } } as never, 'it')).toBe('work')
+    expect(permissionFor({ key: 'r', name: 'R', acl: { change: ['hr'] } } as never, 'it')).toBe('none')
   })
 })

@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import { staticDemoProject } from '../data'
-import { createProjectCommandRunner } from './commands'
+import { createProjectCommandRunner, withFreshId } from './commands'
 
 describe('static demo project creation', () => {
   it('uses a schema-realistic backend-generated V2 fixture without the compile API', () => {
@@ -82,5 +82,19 @@ describe('asynchronous project command ordering', () => {
     request.resolve({ project: initialState.project })
     await running
     expect(harness.dispatch).not.toHaveBeenCalled()
+  })
+})
+
+describe('withFreshId', () => {
+  it('gives every new or imported project its own storage key without growing the id', () => {
+    const project = staticDemoProject('blank')
+    const first = withFreshId(project)
+    const second = withFreshId(project)
+    const again = withFreshId(first)
+    expect(first.id).not.toBe(second.id)
+    expect(first.id).not.toBe(project.id)
+    for (const id of [first.id, second.id, again.id]) expect(id).toMatch(/^[a-z][a-z0-9_-]*$/)
+    expect(again.id.length).toBe(first.id.length)
+    expect(first).toEqual({ ...project, id: first.id })
   })
 })

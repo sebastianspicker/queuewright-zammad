@@ -23,6 +23,7 @@ def _is_relative_json_path(value: Any) -> bool:
     return (
         isinstance(value, str)
         and bool(value)
+        and "\0" not in value
         and not Path(value).is_absolute()
         and Path(value).suffix.lower() == ".json"
     )

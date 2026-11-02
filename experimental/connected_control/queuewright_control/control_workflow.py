@@ -63,12 +63,13 @@ class ControlWorkflowMixin:
             "expires_at": time.time() + ttl_seconds,
         }
         preview = Preview(**material, hash=_hash(material))
-        self.preview = preview
-        self._approved_hash = None
-        self.session_state = "previewed"
+        # Store first: a preview that failed to persist must not become approvable.
         self.ledger.put_blob(
             f"preview:{preview.hash}", _canonical_bytes(preview), "preview"
         )
+        self.preview = preview
+        self._approved_hash = None
+        self.session_state = "previewed"
         return preview
 
     def approve(self, preview_hash: str) -> None:
@@ -76,7 +77,8 @@ class ControlWorkflowMixin:
         if (
             not preview
             or preview.expires_at <= time.time()
-            or not secrets.compare_digest(preview.hash, preview_hash)
+            or not isinstance(preview_hash, str)
+            or not secrets.compare_digest(preview.hash.encode(), preview_hash.encode("utf-8", "surrogatepass"))
             or not secrets.compare_digest(preview.hash, _hash(_preview_material(preview)))
         ):
             raise ControlError(
@@ -139,6 +141,9 @@ class ControlWorkflowMixin:
             preview.hash,
             self.policy.lease_seconds,
         )
+        if self.ledger.state(run_id) != self.session_state:
+            # A stalled process whose lease expired must not continue a run another process recovered.
+            raise ControlError("run_state_changed", "/apply", "run was recovered by another process", run_id)
         self._reauthorize(operation, fence)
         self._assert_run_fence(preview, run_id, fence)
         preimage = self._transport(
@@ -150,7 +155,7 @@ class ControlWorkflowMixin:
         )
         self._assert_run_fence(preview, run_id, fence)
         if not isinstance(preimage, Mapping) or preimage.get("hash") != operation.precondition:
-            self.ledger.set_state(run_id, "drift_detected")
+            self.ledger.set_state(run_id, "drift_detected", expected=self.session_state)
             self.session_state = "drift_detected"
             raise ControlError(
                 "precondition_failed",
@@ -179,14 +184,14 @@ class ControlWorkflowMixin:
         except ControlError:
             current_fence = None
         if time.monotonic() - started > self.policy.call_timeout_seconds or current_fence != fence:
-            self.ledger.set_state(run_id, "outcome_ambiguous")
+            self.ledger.set_state(run_id, "outcome_ambiguous", expected=self.session_state)
             self.session_state = "outcome_ambiguous"
             raise ControlError("outcome_ambiguous", "/apply", "write exceeded its approved time or fencing boundary", run_id)
 
     def _reconcile_ambiguous_write(self, preview: Preview, connection: Connection, credential: EphemeralCredential, run_id: str, operation: Operation, fence: str, response: Any) -> None:
         if operation.method not in WRITE_METHODS or isinstance(response, Mapping) and response.get("ambiguous") is not True:
             return
-        self.ledger.set_state(run_id, "outcome_ambiguous")
+        self.ledger.set_state(run_id, "outcome_ambiguous", expected=self.session_state)
         self.session_state = "outcome_ambiguous"
         result = self._transport("reconcile", connection, credential, operation=operation, fencing_token=fence)
         self._assert_run_fence(preview, run_id, fence)
@@ -203,7 +208,7 @@ class ControlWorkflowMixin:
         )
         self._assert_run_fence(preview, run_id, fence)
         if not isinstance(readback, Mapping) or readback.get("hash") != operation.postcondition:
-            self.ledger.set_state(run_id, "outcome_ambiguous")
+            self.ledger.set_state(run_id, "outcome_ambiguous", expected=self.session_state)
             self.session_state = "outcome_ambiguous"
             raise ControlError(
                 "readback_failed",
@@ -216,7 +221,7 @@ class ControlWorkflowMixin:
     def _finish_apply_run(self, preview: Preview, run_id: str, fence: str) -> None:
         try:
             self._assert_run_fence(preview, run_id, fence)
-            self.ledger.set_state(run_id, "applied")
+            self.ledger.set_state(run_id, "applied", expected=self.session_state)
         except ControlError:
             self._classify_apply_failure(run_id)
             raise

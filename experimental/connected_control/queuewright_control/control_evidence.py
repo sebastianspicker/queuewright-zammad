@@ -57,7 +57,7 @@ class ControlEvidenceMixin:
             if self.ledger.unresolved_intents(run_id)
             else "partially_applied"
         )
-        self.ledger.set_state(run_id, state)
+        self.ledger.set_state(run_id, state, expected="applying")
         self.session_state = state
 
     def _reauthorize(
@@ -85,6 +85,8 @@ class ControlEvidenceMixin:
     def _identity_matches_connection(
         identity: Mapping[str, Any], connection: Connection
     ) -> bool:
+        if identity.get("redirected") is not False:
+            return False
         if identity.get("tenant_fingerprint") != connection.tenant_fingerprint:
             return False
         if identity.get("actor") != connection.actor:

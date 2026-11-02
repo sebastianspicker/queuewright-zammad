@@ -8,6 +8,7 @@ import sqlite3
 import time
 from typing import Any
 
+from cryptography.exceptions import InvalidTag
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 
 from .models import SAFE_KEY, ControlError, Operation, Preview, _hash, _preview_from_bytes
@@ -53,16 +54,21 @@ class LedgerRunsMixin:
         except Exception:
             self._rollback()
             raise
-    def set_state(self, run_id: str, state: str) -> None:
+    def set_state(self, run_id: str, state: str, expected: str | None = None) -> None:
+        """Change a run's state; with ``expected``, only from that state (checked in-transaction)."""
         self._begin()
         try:
             run = self.db.execute(
-                "SELECT preview_hash,tenant_fingerprint,project_id FROM runs "
+                "SELECT preview_hash,tenant_fingerprint,project_id,state FROM runs "
                 "WHERE run_id=?",
                 (run_id,),
             ).fetchone()
             if run is None:
                 raise ControlError("run_missing", "/runs", "run does not exist", run_id)
+            if expected is not None and run[3] != expected:
+                raise ControlError(
+                    "run_state_changed", "/runs", "run state changed in another process", run_id
+                )
             result = self.db.execute(
                 "UPDATE runs SET state=?, updated=? WHERE run_id=?",
                 (state, time.time(), run_id),
@@ -319,7 +325,12 @@ class LedgerRunsMixin:
         if not row:
             return None
         value = row[0]
-        return AESGCM(self._key).decrypt(value[:12], value[12:], name.encode())
+        try:
+            return AESGCM(self._key).decrypt(value[:12], value[12:], name.encode())
+        except (InvalidTag, ValueError):
+            raise ControlError(
+                "ledger_integrity", "/ledger/blobs", "stored evidence failed authentication"
+            ) from None
 
     def load_preview(self, preview_hash: str) -> Preview:
         value = self.get_blob(f"preview:{preview_hash}")

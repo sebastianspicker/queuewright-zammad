@@ -43,13 +43,8 @@ export function removeGroupPermission(role: RoleResource, groupKey: string): voi
 export function permissionFor(role: RoleResource, group: string): Permission {
   if (role.acl.full?.includes(group)) return 'work'
   if (role.acl.create?.includes(group)) return 'create'
-  const readGroups = [
-    ...(role.acl.read ?? []),
-    ...(role.acl.read_change_overview ?? []),
-  ]
-  if (readGroups.includes(group)) {
-    return 'read'
-  }
+  // read, read_change_overview, change and overview all grant access the matrix shows as read.
+  if (Object.values(role.acl).some((groups) => groups?.includes(group))) return 'read'
   return 'none'
 }
 

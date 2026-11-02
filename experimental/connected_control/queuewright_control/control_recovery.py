@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import Any, NoReturn
 
-from .models import Connection, ControlError, EphemeralCredential, Operation, Preview, _hash
+from .models import Connection, ControlError, EphemeralCredential, Operation, Preview
 
 
 class ControlRecoveryMixin:
@@ -111,15 +111,6 @@ class ControlRecoveryMixin:
         self.ledger.set_state(run_id, "manual_recovery")
         self.session_state = "manual_recovery"
         raise ControlError("manual_recovery", path, message, run_id)
-
-    def detect_drift(self, run_id: str, current_baseline: Any) -> bool:
-        preview = self.preview
-        if not preview or _hash(current_baseline) == preview.baseline_hash:
-            return False
-        if self.ledger.run(run_id):
-            self.ledger.set_state(run_id, "drift_detected")
-        self.session_state = "drift_detected"
-        return True
 
     def rollback(self, run_id: str) -> None:
         preview = self._run_preview(

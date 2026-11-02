@@ -47,8 +47,16 @@ function usePersistence(state: State, dispatch: Dispatch<Action>): void {
   useEffect(() => {
     if (staticDemo || !state.hydrated) return
     const { project, revision } = state
-    const timer = window.setTimeout(() => { dispatch({ type: 'storage:start', revision }); void saveDraft(project).then(() => dispatch({ type: 'storage:success', revision })).catch(() => dispatch({ type: 'storage:error', revision })) }, 180)
-    return () => window.clearTimeout(timer)
+    let pending = true
+    const save = () => {
+      if (!pending) return
+      pending = false
+      dispatch({ type: 'storage:start', revision }); void saveDraft(project).then(() => dispatch({ type: 'storage:success', revision })).catch(() => dispatch({ type: 'storage:error', revision }))
+    }
+    const timer = window.setTimeout(save, 180)
+    // Closing the tab inside the debounce window would otherwise drop the last edit.
+    window.addEventListener('pagehide', save)
+    return () => { window.clearTimeout(timer); window.removeEventListener('pagehide', save) }
   }, [dispatch, state.hydrated, state.project, state.revision])
 }
 

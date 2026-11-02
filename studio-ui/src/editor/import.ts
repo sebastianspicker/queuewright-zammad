@@ -1,6 +1,6 @@
 import { api } from '../api/client'
 import type { ManifestDocument, ProfileDocument, RawBundle, StudioProjectV2 } from '../contracts'
-import { isV1Project, isV2Project } from '../contracts/runtime'
+import { isRecord, isV1Project, isV2Project } from '../contracts/runtime'
 
 export function readFile(file: Blob): Promise<string> {
   if (typeof file.text === 'function') return file.text()
@@ -18,8 +18,15 @@ export function findBundle(values: unknown[]): RawBundle | undefined {
   return profile && manifest ? { profile, manifest } : undefined
 }
 
+/** The only part of a Blueprint that editableV2Draft reads before the server validates the rest. */
+function hasDecisionRecords(value: object): boolean {
+  const workbook = (value as { workbook?: unknown }).workbook
+  return isRecord(workbook) && isRecord(workbook.capability_decisions) && Object.values(workbook.capability_decisions).every(isRecord)
+}
+
 export async function importValues(values: unknown[]): Promise<StudioProjectV2> {
   const v2 = values.find(isV2Project)
+  if (v2 && !hasDecisionRecords(v2)) throw new Error('The Blueprint file is incomplete or malformed: workbook.capability_decisions must be an object of decisions.')
   if (v2) return (await api.compile(v2)).project
   const v1 = values.find(isV1Project)
   if (v1) return (await api.compile(v1)).project

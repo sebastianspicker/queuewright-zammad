@@ -8,7 +8,7 @@ from typing import Any
 from ..contracts.json import canonical_sha256
 from ..errors import ConfigurationError
 from .automation import _validate_automation, _validate_reports
-from .loading import load_profile
+from .loading import _is_relative_json_path, _sensitive_path, load_profile
 from .object_manager import _validate_object_manager
 from .resources import (
     _validate_checklists,
@@ -114,6 +114,9 @@ def _validate_profile_metadata(bundle: dict[str, Any], manifest: dict[str, Any])
     _validate_manifest_identifier(manifest)
     if not _is_non_empty_text(bundle.get("display_name")) or bundle.get("offline_only") is not True:
         _fail("profile requires display_name and offline_only true")
+    manifest_name = bundle.get("manifest")
+    if not _is_relative_json_path(manifest_name) or _sensitive_path(Path(manifest_name)):
+        _fail("profile manifest must be a non-empty relative JSON path")
 
 
 def _validate_profile_structure(

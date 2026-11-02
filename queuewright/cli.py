@@ -18,10 +18,6 @@ from .examples import example_path
 from .planning.compiler import compile_loaded_profile
 
 
-def _dump(value: object) -> str:
-    return canonical_json(value)
-
-
 def _write_plan(
     output: str, rendered: str, loaded: dict[str, object]
 ) -> None:
@@ -92,7 +88,7 @@ def main(argv: list[str] | None = None) -> int:
             if args.command == "validate"
             else compile_loaded_profile(loaded)
         )
-        rendered = _dump(result)
+        rendered = canonical_json(result)
         if args.command == "plan" and args.output:
             _write_plan(args.output, rendered, loaded)
         else:

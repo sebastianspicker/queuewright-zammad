@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import copy
+import traceback
 from collections.abc import Callable
 from typing import Any
 
@@ -120,6 +121,11 @@ class StudioService:
             return handler(body)
         except _Rejected as rejection:
             return rejection.response
+        except Exception:  # noqa: BLE001 - answer instead of dropping the connection, which the browser reports as unreachable.
+            traceback.print_exc()
+            return 500, error_envelope(
+                "internal_error", path, "the local compiler could not process this input"
+            )
 
     @staticmethod
     def _health(_body: Any) -> Response:

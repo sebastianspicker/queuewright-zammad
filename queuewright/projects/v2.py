@@ -294,7 +294,11 @@ def _validate_decision_entries(previous: dict[str, Any]) -> None:
             or set(decision) - DECISION_FIELDS
         ):
             raise ProjectError(f"{path} has an invalid shape")
-        if decision["completion"] not in COMPLETIONS or decision["enabled"].__class__ is not bool:
+        if (
+            not isinstance(decision["completion"], str)
+            or decision["completion"] not in COMPLETIONS
+            or decision["enabled"].__class__ is not bool
+        ):
             raise ProjectError(f"{path} has invalid editable values")
         if decision["completion"] in {"applied", "verified"}:
             raise ProjectError(f"{path} cannot claim applied or verified in an offline project")

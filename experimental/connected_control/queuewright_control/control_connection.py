@@ -111,10 +111,22 @@ class ControlConnectionMixin:
         self._require_resumable_preview(preview, run, connection, run_id)
         for operation in preview.operations:
             self.policy.validate(operation, connection.permissions)
+        if run["state"] == "applying" and not self._holds_live_lease(preview, run_id):
+            # The applying process died: give the run the state an in-process failure gets.
+            self._classify_apply_failure(run_id)
         self.preview = preview
         self._approved_hash = None
-        self.session_state = str(run["state"])
+        self.session_state = str(self.ledger.state(run_id))
         return preview
+
+    def _holds_live_lease(self, preview: Preview, run_id: str) -> bool:
+        try:
+            self.ledger.assert_lock(preview.project_id, run_id, preview.hash)
+        except ControlError as error:
+            if error.code != "lock_lost":
+                raise
+            return False
+        return True
 
     @staticmethod
     def _require_recoverable_run(run: Mapping[str, Any] | None, run_id: str) -> None:

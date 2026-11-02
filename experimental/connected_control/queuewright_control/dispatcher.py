@@ -29,7 +29,7 @@ class Response:
 
 
 class LocalDispatcher:
-    def __init__(self, host: str, origin: str, bootstrap_secret: str, routes: Mapping[str, tuple[str, ...]], session_ttl_seconds: int = 900, max_sessions: int = 4) -> None:
+    def __init__(self, host: str, origin: str, bootstrap_secret: str, routes: Mapping[str, tuple[str, ...]], session_ttl_seconds: int = 900) -> None:
         if not re.fullmatch(r"127\.0\.0\.1(?::[0-9]{1,5})?", host):
             raise ControlError("host_invalid", "/dispatcher", "dispatcher must use numeric loopback")
         if origin != f"http://{host}":
@@ -41,7 +41,7 @@ class LocalDispatcher:
         self._bootstrap_available = True
         self._sessions: dict[str, tuple[str, float]] = {}
         self._routes = {path: tuple(sorted(set(methods))) for path, methods in routes.items()}
-        self.session_ttl_seconds, self.max_sessions = session_ttl_seconds, max_sessions
+        self.session_ttl_seconds = session_ttl_seconds
 
     def dispatch(self, request: Request, handler: Callable[[Request, str], Mapping[str, Any]]) -> Response:
         error = self._origin_error(request)
@@ -68,7 +68,7 @@ class LocalDispatcher:
 
     def _bootstrap(self, request: Request) -> Response:
         supplied = request.headers.get("X-Bootstrap-Token", "")
-        allowed = self._bootstrap_available and hmac.compare_digest(hashlib.sha256(supplied.encode()).digest(), self._bootstrap_hash) and len(self._sessions) < self.max_sessions
+        allowed = self._bootstrap_available and hmac.compare_digest(hashlib.sha256(supplied.encode()).digest(), self._bootstrap_hash)
         if not allowed:
             return Response(401, ControlError("bootstrap_denied", request.path, "one-time launcher bootstrap is required").public())
         self._bootstrap_available = False
@@ -83,7 +83,7 @@ class LocalDispatcher:
         session = self._sessions.get(session_id)
         if not session:
             return "", Response(401, ControlError("session_required", request.path, "bootstrap session required").public())
-        if request.method not in READ_METHODS and request.headers.get("X-CSRF-Token") != session[0]:
+        if request.method not in READ_METHODS and not hmac.compare_digest(request.headers.get("X-CSRF-Token", "").encode(), session[0].encode()):
             return "", Response(403, ControlError("csrf_invalid", request.path, "valid CSRF token required").public())
         return session_id, None
 

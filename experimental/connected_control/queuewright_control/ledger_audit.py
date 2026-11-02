@@ -167,15 +167,6 @@ class LedgerAuditMixin:
                 self.db.execute("ROLLBACK")
             return False
 
-    def _synchronize_anchor(self) -> None:
-        """Authenticate the chain and recover a committed extension via CAS."""
-        head, entries = self._audit_chain()
-        anchor = self._key_provider.get_audit_anchor()
-        self._require_matching_anchor(head, anchor, entries)
-        if head is None or anchor == head:
-            return
-        self._advance_anchor(anchor, head)
-
     @staticmethod
     def _require_matching_anchor(
         head: tuple[int, str] | None,
@@ -205,24 +196,6 @@ class LedgerAuditMixin:
                 "protected audit anchor could not be advanced",
             )
 
-    def _verify_operational_integrity(self) -> None:
-        """Cross-check every recovery-authorizing row against anchored audit facts."""
-        if self._transaction is not None:
-            self._verify_transaction(self._transaction)
-            return
-        if self.db.in_transaction:
-            self._invalidate_cache()
-            raise ControlError("ledger_integrity", "/ledger", "untrusted ledger transaction")
-        self.db.execute("BEGIN")
-        try:
-            self._ensure_verified_state()
-            self.db.execute("COMMIT")
-        except Exception:
-            if self.db.in_transaction:
-                self.db.execute("ROLLBACK")
-            self._invalidate_cache()
-            raise
-
     def _full_verified_state(self, *, advance_anchor: bool = True) -> Any:
         """Replay the complete authenticated history and all operational rows."""
         try:
@@ -247,27 +220,6 @@ class LedgerAuditMixin:
             self._advance_anchor(anchor, head)
         return self._new_verified_state(
             head, expected, self._database_stamp(), self._has_standard_schema()
-        )
-
-    def _expected_operational_rows(self) -> OperationalFacts:
-        expected_runs: dict[str, tuple[str, str, str, str]] = {}
-        expected_intents: dict[tuple[str, str], str] = {}
-        expected_outcomes: dict[tuple[str, str], tuple[str, str]] = {}
-        expected_resolutions: dict[tuple[str, str], tuple[str, str]] = {}
-        expected_rollbacks: dict[tuple[str, str], str] = {}
-        audit_rows = self.db.execute(
-            "SELECT run_id,kind,metadata FROM audit ORDER BY sequence"
-        )
-        for run_id, kind, encoded in audit_rows:
-            facts = OperationalFacts(expected_runs, expected_intents, expected_outcomes, expected_resolutions, expected_rollbacks)
-            self._apply_audit_fact(str(run_id), str(kind), json.loads(encoded), facts)
-
-        return OperationalFacts(
-            expected_runs,
-            expected_intents,
-            expected_outcomes,
-            expected_resolutions,
-            expected_rollbacks,
         )
 
     @staticmethod

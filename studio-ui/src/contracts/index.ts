@@ -133,14 +133,6 @@ export interface StudioProjectV1 {
 export type CapabilityDelivery = 'automated' | 'guided_manual' | 'verify_only' | 'unsupported'
 export type CapabilityCompletion = 'decision_required' | 'ready' | 'applied' | 'verified' | 'blocked'
 export type CapabilityRisk = 'low' | 'medium' | 'high' | 'critical'
-export interface CapabilityDefinition {
-  id: string
-  domain: string
-  delivery: CapabilityDelivery
-  default_completion: CapabilityCompletion
-  risk: CapabilityRisk
-  dependencies: string[]
-}
 export interface CapabilityDecision {
   completion: CapabilityCompletion
   delivery: CapabilityDelivery

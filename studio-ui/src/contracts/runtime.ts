@@ -14,7 +14,7 @@ export function isV2Project(value: unknown): value is StudioProjectV2 {
     && (value as { project_schema_version?: unknown }).project_schema_version === '2.0'
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
+export function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
 }
 

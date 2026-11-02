@@ -44,3 +44,21 @@ describe('importFilesIntoStudio', () => {
     expect(JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body))).toEqual({ project })
   })
 })
+
+describe('incomplete Blueprint import', () => {
+  it('names the problem instead of failing as an unreachable service', async () => {
+    const fetchMock = vi.fn()
+    vi.stubGlobal('fetch', fetchMock)
+    await expect(importValues([{ project_schema_version: '2.0', id: 'x', name: 'X' }])).rejects.toThrow('Blueprint file is incomplete')
+    await expect(importValues([{ project_schema_version: '2.0', workbook: { capability_decisions: { ai: null } } }])).rejects.toThrow('Blueprint file is incomplete')
+    expect(fetchMock).not.toHaveBeenCalled()
+  })
+  it('still sends a trimmed Blueprint whose decisions carry only enabled and completion', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ representation: 'editor-1', project: staticDemoProject(), plan: { operations: [] }, graph: { nodes: [] }, hashes: {} }), { status: 200 }))
+    vi.stubGlobal('fetch', fetchMock)
+    const project = staticDemoProject()
+    const trimmed = { ...project, workbook: { organization: project.workbook.organization, capability_decisions: { ai: { enabled: false, completion: 'decision_required' } } } }
+    await importValues([trimmed])
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+  })
+})

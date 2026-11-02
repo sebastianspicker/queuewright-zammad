@@ -10,7 +10,6 @@ function issueText(issue: string | { code: string; path: string; message: string
 
 const artifactKinds = [
   ['Blueprint', 'blueprint-v2', 'The canonical, editable Blueprint V2 document.'],
-  ['Project', 'project-bundle', 'Profile and manifest together, as compiled.'],
   ['Profile', 'profile', 'Identity, presentation and UAT settings.'],
   ['Desired state', 'desired-state', 'Groups, roles, organizations and objects.'],
   ['Inert plan', 'plan', 'Ordered symbolic operations. Nothing executes them.'],
@@ -33,9 +32,10 @@ export function Review() {
   const decisions = Object.values(project.workbook.capability_decisions)
   const unresolved = openDecisionCount(project)
   const key = project.bundle.profile.profile_key
+  // The CLI opens the manifest named in the profile, so the download must use that name.
+  const fileName = (suffix: string) => suffix === 'desired-state' ? project.bundle.profile.manifest : `${key}.${suffix}.json`
   const values: unknown[] = [
     blueprintResult?.project,
-    blueprintResult?.bundle,
     blueprintResult?.bundle.profile,
     blueprintResult?.bundle.manifest,
     blueprintResult?.plan,
@@ -75,20 +75,20 @@ export function Review() {
       ) : null}
 
       <section aria-labelledby="artifacts-heading">
-        <SectionHeading id="artifacts-heading" aside={<span className="caption section-count">6 files · JSON</span>}>Artifacts</SectionHeading>
+        <SectionHeading id="artifacts-heading" aside={<span className="caption section-count">{artifactKinds.length} files · JSON</span>}>Artifacts</SectionHeading>
         <ul className="artifacts">
           {artifactKinds.map(([label, suffix, description], index) => (
             <li className="artifact" key={label}>
               <span className="artifact-text">
                 <strong>{label}</strong>
-                <code>{key}.{suffix}.json</code>
+                <code>{fileName(suffix)}</code>
                 <small>{description}</small>
               </span>
               <button
                 className={index === 0 ? 'button primary' : 'button'}
                 type="button"
                 disabled={demoMode || !ready}
-                onClick={() => download(`${key}.${suffix}.json`, values[index])}
+                onClick={() => download(fileName(suffix).split('/').pop() ?? fileName(suffix), values[index])}
                 aria-label={`Download ${label}${demoMode ? ' (simulated)' : ''}`}
               >
                 <Download size={16} strokeWidth={1.75} aria-hidden="true" /> Download

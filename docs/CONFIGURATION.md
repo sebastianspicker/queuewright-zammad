@@ -5,7 +5,9 @@ precedence, environment-based tenant settings, credential discovery, or
 network lookup.
 
 A profile points to a desired-state manifest in the same bundle and adds
-presentation and synthetic test data. Both documents use schema version `1.0`
+presentation and synthetic test data. Its `manifest` value must be a non-empty
+relative `.json` path without sensitive names such as `.env.json`. Studio applies the same rule and downloads the desired
+state under that name, so its exports work with the CLI. Both documents use schema version `1.0`
 or `1.1`; version `1.1` adds a rooted nested service tree.
 
 ## Bundled examples

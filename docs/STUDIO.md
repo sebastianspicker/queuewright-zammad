@@ -63,7 +63,8 @@ Invalid JSON and parser numeric or nesting limits return a structured HTTP 400
 `invalid_json` error. Ambiguous HTTP message framing is rejected and the
 connection is closed before unread bytes can be interpreted as another
 request. Valid bundles that exceed the documented compilation budgets return
-a structured HTTP 422 response.
+a structured HTTP 422 response. An unexpected compiler failure returns a
+structured HTTP 500 `internal_error` instead of closing the connection.
 
 ## Workflow and project formats
 
@@ -100,6 +101,8 @@ the editor; exports stay disabled until it validates. A record that is not a
 readable Studio project, or one that cannot be validated because the local API
 is unreachable, is preserved untouched and the active slot opens a seed with a
 different ID. V2 library records are validated when opened.
+A new blank project, the example, and every import get their own project ID,
+so they never replace an existing draft.
 The interface has no delete-all control; clear the site's browser data to remove
 drafts.
 
