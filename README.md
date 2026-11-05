@@ -4,6 +4,8 @@ Queuewright validates local JSON descriptions of Zammad configuration and
 compiles deterministic symbolic plans for review. Queuewright Studio edits the
 same model through a loopback-only browser application.
 
+> _Claude was used to polish and proof-read the code and documentation of this repository._
+
 <details>
 <summary>Status and limitations</summary>
 
@@ -36,6 +38,10 @@ flowchart LR
   Plan --> Review[Administrator review]
   Fixtures[Fictional bundled data] --> Demo[Static Studio demo]
 ```
+
+The [architecture guide](docs/ARCHITECTURE.md) shows what runs where, what
+happens on `queuewright plan` and on a Studio edit, how projects and plans
+relate, and where the code for each part lives.
 
 CI checks Dependabot pull requests automatically; other builds and the Pages
 demo require manual dispatch. Security dependency scans run automatically.
