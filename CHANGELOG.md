@@ -22,6 +22,11 @@ safety boundary, and limitations.
   must be a whole number, and `service_owner_role` must be text.
 - `queuewright plan` no longer applies the Studio-only service-projection
   budget.
+- Group names must be unique (ignoring case) under the same parent, and role
+  and organization names must be unique, as Zammad requires. Studio gives new
+  services unique default names.
+- A Studio tab becomes read-only when the same project is opened in another
+  tab, so the two tabs can no longer overwrite each other's draft.
 
 ### Fixed
 
@@ -31,9 +36,13 @@ safety boundary, and limitations.
   added, instead of the compiler switching it back on.
 - Studio reports "Local service unreachable" only when the request itself
   fails, and drops a stalled request after 30 seconds.
+- Examples installed under `~/.local` (pipx or `pip --user`) pass
+  `self-test`; other `.local` folders stay fenced.
 - Connected control: concurrent verify and rollback can no longer overwrite
   each other's run state, a busy ledger reports `ledger_busy`, and NAT64
-  addresses that embed a private IPv4 address are refused.
+  addresses that embed a private IPv4 address are refused. A lock committed
+  just before an audit-anchor failure is released instead of blocking the
+  project for the lease time.
 - Studio no longer replaces an existing draft when you start a blank project,
   open the example, or import a file: each one gets its own project ID.
 - A malformed capability decision is rejected with HTTP 422 instead of closing

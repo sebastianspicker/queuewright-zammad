@@ -11,6 +11,7 @@ from .rules import (
     _managed_names,
     _references,
     _shape,
+    _unique_names,
 )
 
 ALLOWED_MACRO_ACTIONS = {
@@ -270,6 +271,8 @@ def _validate_groups(
     if not groups:
         _fail("at least one managed group is required")
     _managed_names(groups, "group", prefix)
+    # Zammad stores the full path Parent::Child, unique ignoring case.
+    _unique_names(groups, "group", lambda group: group.get("parent"))
     leaf_keys, restricted = _group_key_sets(groups)
     parent_by_key: dict[str, str] = {}
     root_keys: list[str] = []
@@ -297,6 +300,7 @@ def _validate_organizations(
     if not organizations:
         _fail("at least one managed organization is required")
     _managed_names(organizations, "organization", prefix)
+    _unique_names(organizations, "organization")
     for key, organization in organizations.items():
         _shape(
             organization,
@@ -328,6 +332,7 @@ def _validate_roles(
     if not roles:
         _fail("at least one managed role is required")
     _managed_names(roles, "role", prefix)
+    _unique_names(roles, "role")
     for key, role in roles.items():
         _shape(role, f"role {key}", required=ROLE_FIELDS)
         acl = role.get("acl")

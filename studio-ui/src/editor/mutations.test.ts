@@ -44,6 +44,14 @@ describe('editor mutation invariants', () => {
     expect(project.bundle.manifest.tags).toContain('queuewright/test')
   })
 
+  it('gives each new service a unique group and role name', () => {
+    const once = addGroup(initialState.project, 'leaf').project
+    const twice = addGroup(once, 'leaf').project
+    for (const names of [twice.bundle.manifest.groups.map((g) => g.name.toLowerCase()), twice.bundle.manifest.roles.map((r) => r.name.toLowerCase())]) {
+      expect(new Set(names).size).toBe(names.length)
+    }
+  })
+
   it('removes resources of a feature switched on and off before the next compile', () => {
     for (const [feature, collection, key] of [
       ['scheduled_reviews', 'jobs', 'weekly_review'],

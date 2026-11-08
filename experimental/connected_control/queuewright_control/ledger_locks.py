@@ -51,7 +51,25 @@ class LedgerLockMixin:
             raise ControlError("lock_held", "/locks", "project is already locked") from error
         except Exception:
             self._rollback()
+            self._drop_uncommitted_lease(project, owner, preview_hash, fence)
             raise
+
+    def _drop_uncommitted_lease(
+        self, project: str, owner: str, preview_hash: str, fence: str
+    ) -> None:
+        """Release a lease that was committed although acquire_lock reports failure.
+
+        The fresh random fence identifies the row as ours. Best effort: lease expiry
+        remains the fallback when the release fails too.
+        """
+        try:
+            row = self.db.execute(
+                "SELECT fence FROM locks WHERE project=?", (project,)
+            ).fetchone()
+            if row and row[0] == fence:
+                self.release_lock(project, owner, preview_hash)
+        except (ControlError, sqlite3.Error):
+            pass
 
     def assert_lock(self, project: str, owner: str, preview_hash: str) -> str:
         rows = self._verified_rows(

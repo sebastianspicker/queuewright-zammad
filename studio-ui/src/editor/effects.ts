@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useRef, type Dispatch } from 'react'
+import { useCallback, useEffect, useMemo, useRef, type Dispatch } from 'react'
 import { api, LocalServiceUnreachableError } from '../api/client'
 import { saveDraft } from '../persistence/drafts'
+import { createTabClaims } from '../persistence/tab-claims'
 import type { StudioProjectV2 } from '../contracts'
 import { hydrateStudio } from './hydration'
 import { staticDemo, type Action, type State } from './reducer'
@@ -42,9 +43,13 @@ function useCatalog(dispatch: Dispatch<Action>): void {
     return () => controller.abort()
   }, [dispatch])
 }
+/** A tab superseded for its project must never write it, or it would clobber the owner's edits. */
+export function shouldSaveDraft({ hydrated, project, supersededProjectId }: Pick<State, 'hydrated' | 'project' | 'supersededProjectId'>, demoMode = staticDemo): boolean {
+  return !demoMode && hydrated && supersededProjectId !== project.id
+}
 function usePersistence(state: State, dispatch: Dispatch<Action>): void {
   useEffect(() => {
-    if (staticDemo || !state.hydrated) return
+    if (!shouldSaveDraft(state)) return
     const { project, revision } = state
     let pending = true
     const save = () => {
@@ -56,7 +61,28 @@ function usePersistence(state: State, dispatch: Dispatch<Action>): void {
     // Closing the tab inside the debounce window would otherwise drop the last edit.
     window.addEventListener('pagehide', save)
     return () => { window.clearTimeout(timer); window.removeEventListener('pagehide', save) }
-  }, [dispatch, state.hydrated, state.project, state.revision])
+  }, [dispatch, state.hydrated, state.project, state.revision, state.supersededProjectId])
+}
+
+function useTabClaims(state: State, dispatch: Dispatch<Action>): void {
+  const claims = useMemo(() => staticDemo ? undefined : createTabClaims(), [])
+  const claimed = useRef<string | undefined>(undefined)
+  const owned = state.hydrated && state.supersededProjectId !== state.project.id
+  const projectId = state.project.id
+  useEffect(() => {
+    if (!claims) return
+    const stop = claims.onSuperseded((id) => dispatch({ type: 'tab:superseded', projectId: id }))
+    return () => { stop(); claims.close() }
+  }, [claims, dispatch])
+  // Opening, creating, importing or editing claims once; focus re-claims only while this tab still owns the project.
+  useEffect(() => {
+    if (!claims || !owned) return
+    if (claimed.current !== projectId) { claimed.current = projectId; claims.claim(projectId) }
+    const onActive = () => { if (document.visibilityState !== 'hidden') claims.claim(projectId) }
+    window.addEventListener('focus', onActive)
+    document.addEventListener('visibilitychange', onActive)
+    return () => { window.removeEventListener('focus', onActive); document.removeEventListener('visibilitychange', onActive) }
+  }, [claims, owned, projectId, state.revision])
 }
 
 export function shouldScheduleAutomaticCompile({
@@ -83,4 +109,4 @@ function useAutomaticCompile(state: State, runCompile: CompileRunner): void {
     return () => window.clearTimeout(timer)
   }, [runCompile, state.compiling, state.dirty, state.hydrated, state.project, state.revision])
 }
-export function useStudioEffects(state: State, dispatch: Dispatch<Action>, runCompile: CompileRunner): void { useHydration(dispatch); useCatalog(dispatch); usePersistence(state, dispatch); useAutomaticCompile(state, runCompile) }
+export function useStudioEffects(state: State, dispatch: Dispatch<Action>, runCompile: CompileRunner): void { useHydration(dispatch); useCatalog(dispatch); usePersistence(state, dispatch); useTabClaims(state, dispatch); useAutomaticCompile(state, runCompile) }

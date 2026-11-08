@@ -92,11 +92,20 @@ def _repo_root(path: Path) -> Path | None:
     return None
 
 
+def _home_local() -> Path | None:
+    try:
+        return Path.home().resolve() / ".local"
+    except (KeyError, OSError, RuntimeError):
+        return None
+
+
 def _sensitive_path(path: Path) -> bool:
-    for part in path.parts:
+    # ~/.local is the user-level install prefix (pip --user, pipx), not a repo's run-data folder.
+    home_local = _home_local()
+    for index, part in enumerate(path.parts):
         lowered = part.lower()
         if (
-            lowered == ".local"
+            (lowered == ".local" and Path(*path.parts[: index + 1]) != home_local)
             or lowered in SENSITIVE_FILENAMES
             or lowered.startswith(".env.")
             or lowered.endswith(SENSITIVE_SUFFIXES)

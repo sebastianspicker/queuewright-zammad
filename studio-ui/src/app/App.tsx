@@ -1,7 +1,7 @@
 import { Component, lazy, Suspense, type ComponentType, type ReactNode } from 'react'
 import { Inspector, SheetIndex, SheetNotesPanel, TitleBlock, TopBar } from '../components'
 import { Start } from '../screens/Start'
-import { StudioProvider, useStudioStep } from '../editor/context'
+import { StudioProvider, useStudio, useStudioStep } from '../editor/context'
 import type { StepId } from '../contracts'
 import '../styles/index.css'
 
@@ -26,11 +26,18 @@ class ScreenBoundary extends Component<{ children: ReactNode }, { failed: boolea
   }
 }
 
+function TabNotice() {
+  const { project, supersededProjectId } = useStudio()
+  return supersededProjectId === project.id
+    ? <p className="notice error" role="status"><span>This project is open in another tab. Changes here are not saved. Reload this tab to continue editing here.</span> <button type="button" onClick={() => location.reload()}>Reload</button></p>
+    : null
+}
+
 function Studio() {
   const step = useStudioStep()
   const Screen = screens[step]
   return <div className="app-shell" data-step={step}><TopBar /><div className="workspace"><SheetIndex />
-    <main className="canvas" id="sheet"><ScreenBoundary key={step}><Suspense fallback={<p className="sheet-loading" role="status">Opening sheet…</p>}><Screen /></Suspense></ScreenBoundary><div className="sheet-notes-inline"><SheetNotesPanel /></div></main>
+    <main className="canvas" id="sheet"><TabNotice /><ScreenBoundary key={step}><Suspense fallback={<p className="sheet-loading" role="status">Opening sheet…</p>}><Screen /></Suspense></ScreenBoundary><div className="sheet-notes-inline"><SheetNotesPanel /></div></main>
     <Inspector /></div><TitleBlock /></div>
 }
 export default function App() { return <StudioProvider><Studio /></StudioProvider> }

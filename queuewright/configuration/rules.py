@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+from collections.abc import Callable
 from typing import Any, NoReturn
 
 from ..errors import ConfigurationError
@@ -79,6 +80,20 @@ def _managed_names(
         name = item.get("name")
         if not isinstance(name, str) or not name.startswith(prefix):
             _fail(f"{label} {key} name must start with managed_prefix")
+
+
+def _unique_names(
+    items: dict[str, dict[str, Any]],
+    label: str,
+    scope: Callable[[dict[str, Any]], Any] = lambda item: None,
+) -> None:
+    """Zammad rejects a second name that differs only in letter case (within a scope)."""
+    seen: dict[tuple[Any, str], str] = {}
+    for key, item in items.items():
+        marker = (scope(item), item["name"].lower())
+        if marker in seen:
+            _fail(f"{label} {key} name duplicates {label} {seen[marker]}")
+        seen[marker] = key
 
 
 def _references(values: Any, valid: set[str], label: str) -> list[str]:

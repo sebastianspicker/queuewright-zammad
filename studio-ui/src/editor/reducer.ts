@@ -21,6 +21,7 @@ export type Action =
   | { type: 'storage:start'; revision: number }
   | { type: 'storage:success'; revision: number }
   | { type: 'storage:error'; revision: number }
+  | { type: 'tab:superseded'; projectId: string }
 
 export interface State {
   project: StudioProjectV2
@@ -39,6 +40,8 @@ export interface State {
   catalogError?: string
   importError?: string
   storageStatus: 'loading' | 'pending' | 'saving' | 'saved' | 'error'
+  /** Another tab claimed this project id; this tab is read-only for it until reload or a different project. */
+  supersededProjectId?: string
 }
 
 export const seedProject = staticDemoProject()
@@ -62,7 +65,15 @@ function replaceProject(state: State, project: StudioProjectV2, selectedGroup?: 
     storageStatus: 'pending', pendingCommand: undefined }
 }
 
+/** True when the action would edit the project another tab now owns. */
+function blocksEdit(state: State, action: Action): boolean {
+  if (state.supersededProjectId !== state.project.id) return false
+  if (action.type === 'project:edit') return true
+  return (action.type === 'project:replace' || action.type === 'command:success') && action.project.id === state.project.id
+}
+
 export function studioReducer(state: State, action: Action): State {
+  if (blocksEdit(state, action)) return action.type === 'command:success' ? { ...state, pendingCommand: undefined } : state
   switch (action.type) {
     case 'compile:start': return action.revision === state.revision ? { ...state, compiling: true, compileError: undefined } : state
     case 'compile:success': return action.revision === state.revision ? {
@@ -75,6 +86,7 @@ export function studioReducer(state: State, action: Action): State {
     case 'storage:start': return action.revision === state.revision ? { ...state, storageStatus: 'saving' } : state
     case 'storage:success': return action.revision === state.revision ? { ...state, storageStatus: 'saved' } : state
     case 'storage:error': return action.revision === state.revision ? { ...state, storageStatus: 'error' } : state
+    case 'tab:superseded': return action.projectId === state.project.id ? { ...state, supersededProjectId: action.projectId } : state
     case 'command:start': return { ...state, pendingCommand: action.id }
     case 'command:success': return state.pendingCommand === action.id ? replaceProject(state, action.project, action.selectedGroup) : state
     case 'command:error': return state.pendingCommand === action.id ? { ...state, pendingCommand: undefined, importError: action.message } : state

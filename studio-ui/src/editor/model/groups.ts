@@ -19,6 +19,17 @@ import {
 
 export { displayGroupName, isDescendant }
 
+/** Zammad rejects group and role names that differ only in case; new defaults must be unique. */
+function newGroupLabel(bundle: StudioProjectV2['bundle'], base: string): string {
+  const prefix = bundle.manifest.managed_prefix
+  const taken = new Set([...bundle.manifest.groups, ...bundle.manifest.roles].map((item) => item.name.toLowerCase()))
+  let label = base
+  for (let n = 2; taken.has(`${prefix} ${label}`.toLowerCase()) || taken.has(`${prefix} Role · ${label}`.toLowerCase()); n++) {
+    label = `${base} ${n}`
+  }
+  return label
+}
+
 export function addGroup(
   source: StudioProjectV2,
   kind: 'container' | 'leaf',
@@ -41,7 +52,7 @@ export function addGroup(
       active: true,
       key: createdGroupId,
       kind,
-      name: `${bundle.manifest.managed_prefix} ${kind === 'container' ? 'New unit' : 'New service'}`,
+      name: `${bundle.manifest.managed_prefix} ${newGroupLabel(bundle, kind === 'container' ? 'New unit' : 'New service')}`,
       ...(parent ? { parent } : {}),
       ...(kind === 'leaf' ? { service_code: nextServiceCode(bundle) } : {}),
     }
