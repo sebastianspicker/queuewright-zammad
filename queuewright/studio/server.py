@@ -25,6 +25,7 @@ def _silence_log_message(*_args: Any) -> None:
 class _StudioHandler(BaseHTTPRequestHandler):
     server_version = "ZammadStudio/1.0"
     protocol_version = "HTTP/1.1"
+    timeout = 30  # seconds; a stalled body or idle keep-alive must not hold a thread forever
 
     def _respond(self, status: int, payload: dict[str, Any]) -> None:
         rendered = canonical_json(payload).encode("utf-8")

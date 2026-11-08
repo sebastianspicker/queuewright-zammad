@@ -6,7 +6,7 @@ import json
 from pathlib import Path
 from typing import Any
 
-from ..contracts.safety import SafeJsonError, validate_json_depth
+from ..contracts.safety import SafeJsonError, reject_duplicate_keys, validate_json_depth
 from .rules import _fail
 
 SENSITIVE_FILENAMES = {
@@ -71,8 +71,10 @@ def load_profile(profile: str | Path) -> dict[str, Any]:
 
 def _json(path: Path) -> dict[str, Any]:
     try:
-        value = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, UnicodeDecodeError, ValueError) as error:
+        value = json.loads(
+            path.read_text(encoding="utf-8"), object_pairs_hook=reject_duplicate_keys
+        )
+    except (OSError, UnicodeDecodeError, ValueError, RecursionError) as error:
         _fail(f"cannot read JSON {path}: {error}")
     if not isinstance(value, dict):
         _fail(f"JSON object required: {path}")

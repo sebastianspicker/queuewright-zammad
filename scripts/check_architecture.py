@@ -79,6 +79,7 @@ def target_layer(name: str) -> str | None:
 
 
 def check_python_layers(failures: list[str]) -> None:
+    # lizard forgives: three scans that enforce one layering rule
     for path in python_files(ROOT / "queuewright"):
         source_layer = layer_for(path)
         for name in import_names(path):

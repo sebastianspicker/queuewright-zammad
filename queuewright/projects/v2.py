@@ -7,9 +7,9 @@ import re
 from typing import Any, NamedTuple
 
 from ..configuration import FIELD_COLLECTIONS
-from ..contracts.safety import SafeJsonError, validate_safe_json
+from ..contracts.safety import SafeJsonError, validate_json_depth, validate_safe_json
 from ..errors import ConfigurationError
-from ..planning import validate_compilation_budget
+from ..planning import validate_compilation_budget, validate_service_derivation_budget
 from .bundle import (
     BUNDLE_FIELDS,
     PROJECT_FIELDS,
@@ -97,9 +97,9 @@ def _validate_bundle(
 
 def _validate_compilation_budget(bundle: dict[str, Any]) -> None:
     try:
-        validate_compilation_budget(
-            {"profile": bundle["profile"], "manifest": bundle["manifest"]}
-        )
+        loaded = {"profile": bundle["profile"], "manifest": bundle["manifest"]}
+        validate_compilation_budget(loaded)
+        validate_service_derivation_budget(loaded)
     except ConfigurationError as error:
         raise ProjectError(str(error)) from error
 
@@ -350,6 +350,8 @@ def _validate_workbook(
     if not isinstance(workbook["organization"], dict):
         raise ProjectError("workbook.organization must be an object")
     _safe(workbook["organization"], "workbook.organization")
+    if not isinstance(workbook["organization"].get("service_owner_role", ""), str):
+        raise ProjectError("workbook.organization.service_owner_role must be text")
     normalized = _validate_workbook_decisions(
         workbook["capability_decisions"], bundle, name, capabilities
     )
@@ -376,6 +378,10 @@ def validate_v2_snapshot(project: Any) -> ValidatedV2Project:
             "project must contain exactly project_schema_version, id, name, "
             "target_schema_version, workbook, extensions, and bundle"
         )
+    try:
+        validate_json_depth(project, "project")
+    except SafeJsonError as error:
+        raise ProjectError(f"{error.path} {error.message}") from error
     _validate_header(project, PROJECT_SCHEMA_VERSION)
     bundle, summary = _validate_bundle(
         project["bundle"], load_features(), normalize_studio_state=True

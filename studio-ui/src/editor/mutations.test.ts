@@ -44,6 +44,19 @@ describe('editor mutation invariants', () => {
     expect(project.bundle.manifest.tags).toContain('queuewright/test')
   })
 
+  it('removes resources of a feature switched on and off before the next compile', () => {
+    for (const [feature, collection, key] of [
+      ['scheduled_reviews', 'jobs', 'weekly_review'],
+      ['sensitive_area_handling', 'triggers', 'mark_sensitive'],
+      ['cross_department_handoff', 'triggers', 'record_handoff'],
+    ] as const) {
+      const off = toggleFeature(initialState.project, feature, false, bundledCatalog)
+      const flipped = toggleFeature(toggleFeature(off, feature, true, bundledCatalog), feature, false, bundledCatalog)
+      expect(flipped.bundle.manifest[collection].map((item) => item.key)).not.toContain(key)
+      expect(flipped.bundle.manifest.tags).toEqual(off.bundle.manifest.tags)
+    }
+  })
+
   it('keeps canonical-shaped drafts through bundle, feature, governance, and access edits', () => {
     const source = initialState.project
     const bundleEdited = addGroup(source, 'leaf', 'student_services').project

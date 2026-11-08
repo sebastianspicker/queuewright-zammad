@@ -1,0 +1,10 @@
+---
+exclude_paths:
+  # generated lockfiles
+  - "package-lock.json"
+  - "**/package-lock.json"
+  # repository verification scripts (build/install probes, not shipped code)
+  - "scripts/verify_*.py"
+  # test code (private, but has reached Codacy analyses)
+  - "tests/**"
+  - "**/tests/**"

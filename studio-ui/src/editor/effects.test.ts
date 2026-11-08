@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { staticDemoProject } from '../data'
+import { LocalServiceUnreachableError } from '../api/client'
 import { compileMessage, LOCAL_SERVICE_UNREACHABLE, shouldScheduleAutomaticCompile } from './effects'
 import { initialState, studioReducer } from './reducer'
 
@@ -47,7 +48,8 @@ describe('automatic compile scheduling', () => {
 
 describe('compile error messages', () => {
   it('names an unreachable loopback service instead of the raw fetch error', () => {
-    expect(compileMessage(new TypeError('Failed to fetch'))).toBe(LOCAL_SERVICE_UNREACHABLE)
+    expect(compileMessage(new LocalServiceUnreachableError('Failed to fetch'))).toBe(LOCAL_SERVICE_UNREACHABLE)
+    expect(compileMessage(new TypeError("Cannot read properties of undefined (reading 'plan')"))).not.toBe(LOCAL_SERVICE_UNREACHABLE)
     expect(compileMessage(new Error('Profile invalid'))).toBe('Profile invalid')
     expect(compileMessage(new DOMException('aborted', 'AbortError'))).toBe('')
   })

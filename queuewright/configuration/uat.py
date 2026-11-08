@@ -233,7 +233,8 @@ def _validate_uat_scenarios(
     context: _UatValidationContext,
 ) -> dict[str, dict[str, Any]]:
     scenarios = _keyed_items(profile_uat.get("scenarios"), "UAT scenarios")
-    if manifest_uat.get("ticket_count") != len(scenarios):
+    ticket_count = manifest_uat.get("ticket_count")
+    if ticket_count.__class__ is not int or ticket_count != len(scenarios):
         _fail("UAT ticket_count must equal scenario count")
     numbers = [scenario.get("number") for scenario in scenarios.values()]
     if (

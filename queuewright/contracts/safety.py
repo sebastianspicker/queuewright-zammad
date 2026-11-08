@@ -10,12 +10,16 @@ MAX_JSON_DEPTH = 64
 
 SENSITIVE_SETTING_NAMES = frozenset(
     {
+        "apikey",
         "authorization",
+        "bearer",
         "cookie",
         "credential",
         "credentials",
         "env",
+        "passwd",
         "password",
+        "privatekey",
         "secret",
         "session",
         "token",
@@ -32,23 +36,47 @@ class SafeJsonError(ValueError):
         self.message = message
 
 
+def reject_duplicate_keys(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+    """``json.loads`` object_pairs_hook that refuses a repeated key."""
+    result: dict[str, Any] = {}
+    for key, value in pairs:
+        if key in result:
+            raise ValueError(f"duplicate JSON key: {key}")
+        result[key] = value
+    return result
+
+
 def _key_parts(key: str) -> set[str]:
     snake_case = re.sub(r"([a-z0-9])([A-Z])", r"\1_\2", key)
-    return set(re.findall(r"[a-z0-9]+", snake_case.lower()))
+    parts = set(re.findall(r"[a-z0-9]+", snake_case.lower()))
+    return parts | {part[:-1] for part in parts if part.endswith("s")}
 
 
 def validate_json_depth(value: Any, path: str) -> None:
-    """Bound container nesting before recursive copying or serialization."""
+    """Bound container nesting and reject non-UTF-8-encodable strings before hashing."""
     pending = [(value, 0)]
     while pending:
         current, depth = pending.pop()
+        if isinstance(current, str):
+            _require_unicode(current, path)
         if not isinstance(current, (dict, list)):
             continue
         depth += 1
         if depth > MAX_JSON_DEPTH:
             raise SafeJsonError(path, f"JSON must not exceed {MAX_JSON_DEPTH} nesting levels")
+        if isinstance(current, dict):
+            for key in current:
+                if isinstance(key, str):
+                    _require_unicode(key, path)
         children = current.values() if isinstance(current, dict) else current
-        pending.extend((child, depth) for child in children if isinstance(child, (dict, list)))
+        pending.extend((child, depth) for child in children if isinstance(child, (dict, list, str)))
+
+
+def _require_unicode(text: str, path: str) -> None:
+    try:
+        text.encode("utf-8")
+    except UnicodeEncodeError:
+        raise SafeJsonError(path, "JSON strings must be valid Unicode text") from None
 
 
 def _validate_scalar(value: Any, path: str) -> bool:

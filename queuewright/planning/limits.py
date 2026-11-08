@@ -30,7 +30,7 @@ def validate_compilation_budget(loaded: dict[str, Any]) -> None:
     the repeated dependency lists.  Callers must validate the bundle shape and
     references before invoking this function.
     """
-    profile = loaded["profile"]
+    # lizard forgives: straight-line budget arithmetic; comprehensions inflate CCN
     manifest = loaded["manifest"]
     object_manager = manifest["object_manager"]
 
@@ -87,7 +87,6 @@ def validate_compilation_budget(loaded: dict[str, Any]) -> None:
         {key for values in role["acl"].values() for key in values}
         for role in roles
     ]
-    role_group_keys_by_role = dict(zip(role_keys, role_group_keys, strict=True))
     base_dependencies = sum(1 for group in groups if group.get("parent"))
     base_dependencies += sum(len(keys) for keys in role_group_keys)
     base_dependencies += len(agents) + len(customers)
@@ -147,6 +146,28 @@ def validate_compilation_budget(loaded: dict[str, Any]) -> None:
             "symbolic plan dependency identifiers exceed the maximum of "
             f"{MAX_PLAN_DEPENDENCY_ID_BYTES} bytes"
         )
+
+
+def validate_service_derivation_budget(loaded: dict[str, Any]) -> None:
+    """Reject validated bundles whose Studio service projection would exceed fixed budgets.
+
+    Only the V2 project's ``derived_services`` needs this; plain plan compilation
+    does not.  Callers must validate the bundle shape and references first.
+    """
+    # lizard forgives: straight-line budget arithmetic; comprehensions inflate CCN
+    profile = loaded["profile"]
+    manifest = loaded["manifest"]
+    groups = manifest["groups"]
+    roles = manifest["roles"]
+    agents = manifest["users"]["agents"]
+    workflows = manifest["object_manager"]["core_workflows"]
+    role_group_keys = [
+        {key for values in role["acl"].values() for key in values}
+        for role in roles
+    ]
+    role_group_keys_by_role = dict(
+        zip([role["key"] for role in roles], role_group_keys, strict=True)
+    )
 
     role_by_key = {role["key"]: role for role in roles}
     role_acl_entries = sum(

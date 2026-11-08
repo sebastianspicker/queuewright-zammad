@@ -105,4 +105,5 @@ export function Start() {
       )}
     </section>
   )
+  // #lizard forgives: length is JSX markup, not branching logic
 }

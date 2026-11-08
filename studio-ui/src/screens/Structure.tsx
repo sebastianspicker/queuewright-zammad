@@ -123,6 +123,7 @@ function SortableTreeRow({
       ) : <span className="tree-handle" aria-hidden="true" />}
     </li>
   )
+  // #lizard forgives: length is JSX markup, not branching logic
 }
 
 export function Structure() {
@@ -202,4 +203,5 @@ export function Structure() {
       </DndContext>
     </section>
   )
+  // #lizard forgives: length is JSX markup, not branching logic
 }

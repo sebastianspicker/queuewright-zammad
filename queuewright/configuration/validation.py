@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Any
 
 from ..contracts.json import canonical_sha256
+from ..contracts.safety import SafeJsonError, validate_json_depth
 from ..errors import ConfigurationError
 from .automation import _validate_automation, _validate_reports
 from .loading import _is_relative_json_path, _sensitive_path, load_profile
@@ -323,6 +324,11 @@ def validate_loaded_profile(loaded: dict[str, Any]) -> dict[str, Any]:
 def _validate_loaded_profile(loaded: dict[str, Any]) -> dict[str, Any]:
     bundle = loaded["profile"]
     manifest = loaded["manifest"]
+    try:
+        validate_json_depth(bundle, "profile")
+        validate_json_depth(manifest, "manifest")
+    except SafeJsonError as error:
+        _fail(f"{error.path}: {error.message}")
     schema_version = _validate_profile_structure(bundle, manifest)
     _validate_profile_metadata(bundle, manifest)
     prefix, namespace = _validate_profile_namespace(manifest)

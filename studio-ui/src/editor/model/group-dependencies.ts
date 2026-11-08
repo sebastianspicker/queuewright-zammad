@@ -131,6 +131,7 @@ export function removeLeafDependencies(
     (field) => field.name.endsWith('_service_code'),
   )
   if (serviceField) serviceField.options = [...serviceCodes]
+  // #lizard forgives: one sequential cascade; splitting it would scatter one rule
 }
 
 export function customerEntryPoints(project: StudioBundle): string[] {

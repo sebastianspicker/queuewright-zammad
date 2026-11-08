@@ -182,8 +182,8 @@ def _validate_container_group(
 ) -> None:
     parent = group.get("parent")
     if schema_version == "1.0":
-        if parent is not None or group.get("restricted") is True:
-            _fail(f"container group {key} cannot have a parent or restriction")
+        if parent is not None:
+            _fail(f"container group {key} cannot have a parent")
     elif parent is None:
         root_keys.append(key)
     elif not isinstance(parent, str) or not parent:

@@ -25,8 +25,7 @@ ROOT_CONNECTION_SCHEMA = ROOT / "queuewright" / "contracts" / "schemas" / "zamma
 CONTROL_CONNECTION_SCHEMA = (
     CONTROL_ROOT / "queuewright_control" / "schemas" / "zammad-connection.schema.json"
 )
-CI_WORKFLOW = ROOT / ".github" / "workflows" / "ci.yml"
-PAGES_WORKFLOW = ROOT / ".github" / "workflows" / "pages.yml"
+WORKFLOWS = ROOT / ".github" / "workflows"
 SKIP_PATHS = {
     Path(".git"), Path(".agents"), Path(".claude"), Path(".codex"), Path(".cursor"),
     Path(".impeccable"), Path(".local"), Path(".serena"), Path("studio-ui/node_modules"),
@@ -302,14 +301,14 @@ def check_studio_surface(parsed_json: dict[Path, Any], failures: list[str]) -> N
 
 
 def check_workflows(failures: list[str]) -> None:
-    for workflow in (CI_WORKFLOW, PAGES_WORKFLOW):
+    for workflow in sorted([*WORKFLOWS.glob("*.yml"), *WORKFLOWS.glob("*.yaml")]):
         try:
             text = read_text(workflow)
         except OSError as error:
             failures.append(f"cannot inspect workflow {workflow.relative_to(ROOT)}: {error}")
             continue
         for action, revision in re.findall(r"uses:\s+([^\s@]+)@([^\s#]+)", text):
-            if action.startswith("actions/") and not re.fullmatch(r"[0-9a-f]{40}", revision):
+            if not action.startswith("./") and not re.fullmatch(r"[0-9a-f]{40}", revision):
                 failures.append(
                     f"workflow action is not commit pinned: {workflow.relative_to(ROOT)} -> {action}"
                 )

@@ -232,9 +232,19 @@ def _validated_address(value: Any, allow_private: bool) -> str:
         address = ipaddress.ip_address(value)
     except ValueError as error:
         raise ControlError("identity_invalid", "/connection/resolved_addresses", "resolved address is invalid") from error
-    if not allow_private and not address.is_global:
+    if not allow_private and not (address.is_global and _embedded_ipv4_is_global(address)):
         raise ControlError("origin_forbidden", "/connection/origin", "private, loopback, link-local, and reserved origins require an explicit on-prem policy")
     return address.compressed
+
+
+_NAT64_PREFIX = ipaddress.ip_network("64:ff9b::/96")
+
+
+def _embedded_ipv4_is_global(address: ipaddress.IPv4Address | ipaddress.IPv6Address) -> bool:
+    """A NAT64 address reaches the IPv4 address it embeds, which must be global too."""
+    if address in _NAT64_PREFIX:
+        return ipaddress.IPv4Address(int(address) & 0xFFFFFFFF).is_global
+    return True
 
 
 def _require_literal_address(host: str, addresses: Sequence[str]) -> None:

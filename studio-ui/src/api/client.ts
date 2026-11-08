@@ -26,6 +26,23 @@ export class StudioApiError extends Error {
   }
 }
 
+/** fetch() itself failed: the loopback API is not listening. */
+export class LocalServiceUnreachableError extends Error {
+  constructor(message: string) {
+    super(message)
+    this.name = 'LocalServiceUnreachableError'
+  }
+}
+
+async function request(input: string, init: RequestInit): Promise<Response> {
+  try {
+    return await fetch(input, init)
+  } catch (error) {
+    if (error instanceof TypeError) throw new LocalServiceUnreachableError(error.message)
+    throw error
+  }
+}
+
 /** True when the local compiler answered and rejected the project (not when it is unreachable). */
 export function isCompilerRejection(error: unknown): error is StudioApiError {
   return error instanceof StudioApiError && error.status === 422
@@ -93,7 +110,7 @@ export function expandEditorResponse(response: EditorCompileResponse): Blueprint
 /** The only browser transport boundary. */
 export const api = {
   async loadCatalog(signal?: AbortSignal): Promise<FeatureDefinition[]> {
-    const catalog = await json<CatalogResponse>(await fetch('/api/v1/catalog', { signal }))
+    const catalog = await json<CatalogResponse>(await request('/api/v1/catalog', { signal }))
     return catalog.features.filter((feature) => isFeatureId(feature.id)).map(featureDefinition)
   },
 
@@ -102,7 +119,7 @@ export const api = {
     const body = 'project_schema_version' in input
       ? { project: input.project_schema_version === '2.0' ? editableV2Draft(input) : input }
       : input
-    return expandEditorResponse(await json<EditorCompileResponse>(await fetch('/api/v2/compile-editor', {
+    return expandEditorResponse(await json<EditorCompileResponse>(await request('/api/v2/compile-editor', {
       method: 'POST', headers: { 'content-type': 'application/json' },
       body: JSON.stringify(body), signal,
     })))

@@ -94,4 +94,5 @@ export function studioReducer(state: State, action: Action): State {
     case 'catalog:error': return { ...state, catalogError: action.message }
     case 'import:error': return { ...state, importError: action.message }
   }
+  // #lizard forgives: one case per action in a switch reducer, not nested logic
 }

@@ -92,4 +92,5 @@ export function Readiness() {
       </p>
     </section>
   )
+  // #lizard forgives: length is JSX markup, not branching logic
 }

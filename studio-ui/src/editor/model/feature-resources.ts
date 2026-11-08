@@ -1,7 +1,7 @@
 import type { FeatureId, KeyedResource, StudioBundle } from '../../contracts'
 import { HANDOFF_MODES } from './access'
 import { addClassificationResources } from './feature-classification'
-import { ensureField } from './object-fields'
+import { ensureField, objectFieldCollections, objectFields } from './object-fields'
 
 const forbiddenActions = [
   'ai',
@@ -111,8 +111,28 @@ function addSpecialResources(project: StudioBundle, feature: FeatureId): void {
   }
 }
 
-export function addFeatureResources(project: StudioBundle, feature: FeatureId): void {
+const ownedCollections = ['overviews', 'macros', 'checklist_templates', 'triggers', 'jobs', 'report_profiles'] as const
+
+function removableResourceIds(project: StudioBundle): Set<string> {
+  return new Set([
+    ...ownedCollections.flatMap((collection) => project.manifest[collection].map((item) => `${collection}:${item.key}`)),
+    ...project.manifest.tags.map((tag) => `tags:${tag}`),
+    ...objectFieldCollections.flatMap((collection) =>
+      objectFields(project, collection).map((field) => `object_manager_fields:${field.name}`)),
+  ])
+}
+
+function addResources(project: StudioBundle, feature: FeatureId): void {
   if (addClassificationResources(project, feature)) return
   if (addOperationalResources(project, feature)) return
   addSpecialResources(project, feature)
+}
+
+export function addFeatureResources(project: StudioBundle, feature: FeatureId): void {
+  const before = removableResourceIds(project)
+  addResources(project, feature)
+  // The server assigns ownership on its next compile; record it now so an immediate disable removes these.
+  for (const id of removableResourceIds(project)) {
+    if (!before.has(id)) project.resource_ownership[id] = feature
+  }
 }

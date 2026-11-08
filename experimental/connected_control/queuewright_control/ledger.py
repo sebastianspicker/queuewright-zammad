@@ -156,6 +156,7 @@ class Ledger(LedgerAuditMixin, LedgerRunsMixin, LedgerLockMixin):
     @staticmethod
     def _resolve_trusted_parent(parent: Path) -> Path:
         """Resolve a parent while validating every directory and symlink hop."""
+        # lizard forgives: one fail-closed path walk; splitting it would scatter the checks
         current = Path(parent.anchor)
         root_details = Ledger._lstat(current)
         if root_details is None:
@@ -364,8 +365,16 @@ class Ledger(LedgerAuditMixin, LedgerRunsMixin, LedgerLockMixin):
             and not self._schema_signature(self.db, "temp")
         )
 
+    def _begin_immediate(self) -> None:
+        try:
+            self.db.execute("BEGIN IMMEDIATE")
+        except sqlite3.OperationalError as error:
+            raise ControlError(
+                "ledger_busy", "/ledger", "ledger is busy in another process; retry"
+            ) from error
+
     def _initialize_verified_state(self) -> None:
-        self.db.execute("BEGIN IMMEDIATE")
+        self._begin_immediate()
         try:
             state = self._full_verified_state()
             state.stamp = self._database_stamp()
@@ -410,9 +419,9 @@ class Ledger(LedgerAuditMixin, LedgerRunsMixin, LedgerLockMixin):
 
     def _ensure_verified_state(self) -> _VerifiedState:
         stamp = self._database_stamp()
-        if self._cache_is_current(stamp):
-            assert self._cache is not None
-            return self._cache
+        cached = self._cache
+        if cached is not None and self._cache_is_current(stamp):
+            return cached
         state = self._full_verified_state()
         state.stamp = self._database_stamp()
         self._cache = state
@@ -424,7 +433,7 @@ class Ledger(LedgerAuditMixin, LedgerRunsMixin, LedgerLockMixin):
             raise ControlError(
                 "ledger_integrity", "/ledger", "nested or untrusted ledger transaction"
             )
-        self.db.execute("BEGIN IMMEDIATE")
+        self._begin_immediate()
         try:
             base = self._ensure_verified_state()
             begin_stamp = self._database_stamp()
@@ -487,7 +496,7 @@ class Ledger(LedgerAuditMixin, LedgerRunsMixin, LedgerLockMixin):
         self._full_verified_state(advance_anchor=False)
 
     def _reconcile_committed_transaction(self, transaction: _TransactionState) -> None:
-        self.db.execute("BEGIN IMMEDIATE")
+        self._begin_immediate()
         try:
             stamp = self._database_stamp()
             tail = self.db.execute(

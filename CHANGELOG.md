@@ -16,9 +16,24 @@ safety boundary, and limitations.
 - Corrupt packaged registries now raise `ConfigurationError` ("feature
   registry ...").
 - The Studio API smoke script is replaced by real-HTTP tests.
+- Profiles and projects are validated more strictly: any `scheme://` text
+  counts as a URL, plural or joined secret-shaped keys (`tokens`, `apikey`,
+  `passwd`) are rejected, duplicate JSON keys are rejected, `ticket_count`
+  must be a whole number, and `service_owner_role` must be text.
+- `queuewright plan` no longer applies the Studio-only service-projection
+  budget.
 
 ### Fixed
 
+- A lone UTF-16 surrogate or very deep nesting in a profile or project is
+  rejected as invalid input instead of crashing the CLI or returning HTTP 500.
+- Switching a feature on and off before the next compile now removes what it
+  added, instead of the compiler switching it back on.
+- Studio reports "Local service unreachable" only when the request itself
+  fails, and drops a stalled request after 30 seconds.
+- Connected control: concurrent verify and rollback can no longer overwrite
+  each other's run state, a busy ledger reports `ledger_busy`, and NAT64
+  addresses that embed a private IPv4 address are refused.
 - Studio no longer replaces an existing draft when you start a blank project,
   open the example, or import a file: each one gets its own project ID.
 - A malformed capability decision is rejected with HTTP 422 instead of closing

@@ -200,7 +200,10 @@ class LedgerAuditMixin:
         """Replay the complete authenticated history and all operational rows."""
         try:
             head, entries, expected = self._authenticated_history(derive_facts=True)
-            assert expected is not None
+            if expected is None:
+                raise ControlError(
+                    "ledger_integrity", "/ledger", "operational facts were not derived"
+                )
             anchor = self._key_provider.get_audit_anchor()
             self._require_matching_anchor(head, anchor, entries)
             actual = self._actual_operational_rows()

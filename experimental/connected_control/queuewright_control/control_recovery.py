@@ -20,7 +20,7 @@ class ControlRecoveryMixin:
         )
         outcomes = self.ledger.outcomes(run_id)
         if set(outcomes) != {operation.id for operation in preview.operations}:
-            self.ledger.set_state(run_id, "manual_recovery")
+            self.ledger.set_state(run_id, "manual_recovery", expected="applied")
             self.session_state = "manual_recovery"
             raise ControlError(
                 "verification_incomplete",
@@ -40,7 +40,7 @@ class ControlRecoveryMixin:
             )
             self._assert_run_fence(preview, run_id, fence)
             if not isinstance(evidence, Mapping) or evidence.get("hash") != outcomes[operation.id]:
-                self.ledger.set_state(run_id, "drift_detected")
+                self.ledger.set_state(run_id, "drift_detected", expected="applied")
                 self.session_state = "drift_detected"
                 raise ControlError(
                     "verification_failed",
@@ -49,7 +49,7 @@ class ControlRecoveryMixin:
                     run_id,
                 )
         self._assert_run_fence(preview, run_id, fence)
-        self.ledger.set_state(run_id, "verified")
+        self.ledger.set_state(run_id, "verified", expected="applied")
         self.session_state = "verified"
         self.ledger.release_lock(preview.project_id, run_id, preview.hash)
 
@@ -77,18 +77,18 @@ class ControlRecoveryMixin:
     ) -> None:
         operation = by_id.get(operation_id)
         if operation is None:
-            self._manual_recovery(run_id, "/reconcile", "durable intent is absent from the protected preview")
+            self._manual_recovery(run_id, "/reconcile", "durable intent is absent from the protected preview", "outcome_ambiguous")
         self._reauthorize(operation, fence)
         self._assert_run_fence(preview, run_id, fence)
         reconciled = self._transport("reconcile", connection, credential, operation=operation, fencing_token=fence)
         self._assert_run_fence(preview, run_id, fence)
         if not isinstance(reconciled, Mapping):
-            self._manual_recovery(run_id, "/reconcile", "ambiguous write could not be proven")
+            self._manual_recovery(run_id, "/reconcile", "ambiguous write could not be proven", "outcome_ambiguous")
         if reconciled.get("matched") is False and reconciled.get("hash") == operation.precondition:
             self.ledger.resolve_not_applied(run_id, operation.id, operation.precondition)
             return
         if not (reconciled.get("matched") is True and reconciled.get("hash") == operation.postcondition):
-            self._manual_recovery(run_id, "/reconcile", "ambiguous write matched neither approved preimage nor postimage")
+            self._manual_recovery(run_id, "/reconcile", "ambiguous write matched neither approved preimage nor postimage", "outcome_ambiguous")
         self._record_reconciled_outcome(run_id, preview, connection, credential, fence, operation)
 
     def _record_reconciled_outcome(
@@ -98,17 +98,17 @@ class ControlRecoveryMixin:
         readback = self._transport("readback", connection, credential, operation=operation, fencing_token=fence)
         self._assert_run_fence(preview, run_id, fence)
         if not isinstance(readback, Mapping) or readback.get("hash") != operation.postcondition:
-            self._manual_recovery(run_id, "/reconcile", "reconciled write failed authoritative readback")
+            self._manual_recovery(run_id, "/reconcile", "reconciled write failed authoritative readback", "outcome_ambiguous")
         self.ledger.outcome(run_id, operation.id, operation.postcondition)
 
     def _finish_reconciliation(self, run_id: str, preview: Preview, fence: str) -> None:
         self._assert_run_fence(preview, run_id, fence)
         state = "applied" if set(self.ledger.outcomes(run_id)) == {operation.id for operation in preview.operations} else "partially_applied"
-        self.ledger.set_state(run_id, state)
+        self.ledger.set_state(run_id, state, expected="outcome_ambiguous")
         self.session_state = state
 
-    def _manual_recovery(self, run_id: str, path: str, message: str) -> NoReturn:
-        self.ledger.set_state(run_id, "manual_recovery")
+    def _manual_recovery(self, run_id: str, path: str, message: str, expected: str) -> NoReturn:
+        self.ledger.set_state(run_id, "manual_recovery", expected=expected)
         self.session_state = "manual_recovery"
         raise ControlError("manual_recovery", path, message, run_id)
 
@@ -126,6 +126,7 @@ class ControlRecoveryMixin:
             },
         )
         self._require_connection()
+        entered = self.ledger.state(run_id)
         fence = self.ledger.ensure_lock(
             preview.project_id,
             run_id,
@@ -142,22 +143,22 @@ class ControlRecoveryMixin:
             )
         if not outcomes:
             self._assert_run_fence(preview, run_id, fence)
-            self.ledger.set_state(run_id, "rolled_back")
+            self.ledger.set_state(run_id, "rolled_back", expected=entered)
             self.session_state = "rolled_back"
             self.ledger.release_lock(preview.project_id, run_id, preview.hash)
             return
-        self._set_rollback_state(run_id, "rolling_back")
+        self._set_rollback_state(run_id, "rolling_back", entered)
         rollback_intents = self.ledger.rollback_intents(run_id)
         for operation in reversed(preview.operations):
             if operation.id not in outcomes:
                 continue
             fence = self._rollback_operation(run_id, preview, fence, operation, outcomes, rollback_intents)
         self._assert_run_fence(preview, run_id, fence)
-        self._set_rollback_state(run_id, "rolled_back")
+        self._set_rollback_state(run_id, "rolled_back", "rolling_back")
         self.ledger.release_lock(preview.project_id, run_id, preview.hash)
 
-    def _set_rollback_state(self, run_id: str, state: str) -> None:
-        self.ledger.set_state(run_id, state)
+    def _set_rollback_state(self, run_id: str, state: str, expected: str | None) -> None:
+        self.ledger.set_state(run_id, state, expected=expected)
         self.session_state = state
 
     def _rollback_operation(
@@ -173,7 +174,7 @@ class ControlRecoveryMixin:
             self.ledger.mark_rolled_back(run_id, operation.id)
             return fence
         if not isinstance(current, Mapping) or current.get("hash") != outcomes[operation.id]:
-            self._manual_recovery(run_id, "/rollback", "resource changed after apply; automatic rollback stopped")
+            self._manual_recovery(run_id, "/rollback", "resource changed after apply; automatic rollback stopped", "rolling_back")
         self._write_rollback(run_id, preview, connection, credential, fence, operation, expected)
         return fence
 
@@ -195,15 +196,15 @@ class ControlRecoveryMixin:
         try:
             result = self._transport("rollback", connection, credential, operation=operation, action=action, fencing_token=fence)
         except Exception:  # noqa: BLE001 - any adapter failure leaves rollback outcome ambiguous.
-            self._manual_recovery(run_id, "/rollback", "rollback outcome is ambiguous and must be reconciled")
+            self._manual_recovery(run_id, "/rollback", "rollback outcome is ambiguous and must be reconciled", "rolling_back")
         readback = self._current_hash(preview, run_id, connection, credential, fence, operation)
         if not isinstance(result, Mapping) or result.get("hash") != expected or not isinstance(readback, Mapping) or readback.get("hash") != expected:
-            self._manual_recovery(run_id, "/rollback", "rollback readback failed")
+            self._manual_recovery(run_id, "/rollback", "rollback readback failed", "rolling_back")
         self.ledger.mark_rolled_back(run_id, operation.id)
 
     def _rollback_action(self, run_id: str, operation: Operation) -> str:
         if operation.rollback.get("created") is True:
             return "deactivate"
         if operation.rollback.get("preimage") is None:
-            self._manual_recovery(run_id, "/rollback", "operation has no approved inverse")
+            self._manual_recovery(run_id, "/rollback", "operation has no approved inverse", "rolling_back")
         return "restore"

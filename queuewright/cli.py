@@ -96,4 +96,3 @@ def main(argv: list[str] | None = None) -> int:
         return 0
     except ConfigurationError as error:
         parser.error(str(error))
-    return 2

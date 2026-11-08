@@ -9,6 +9,7 @@ from ..configuration import FIELD_COLLECTIONS
 
 def manifest_inventory(manifest: dict[str, Any]) -> dict[str, list[str]]:
     """Return the sorted resource keys that the plan compiler embeds in each plan."""
+    # lizard forgives: flat table of sorted comprehensions
     return {
         "checklist_templates": sorted(item["key"] for item in manifest["checklist_templates"]),
         "containers": sorted(

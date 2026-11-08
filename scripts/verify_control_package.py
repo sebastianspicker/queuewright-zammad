@@ -35,10 +35,12 @@ def main() -> int:
             if not REQUIRED <= names:
                 raise RuntimeError(f"{label} is missing package files: {sorted(REQUIRED - names)}")
         environment = directory / "venv"
-        venv.EnvBuilder(with_pip=True, system_site_packages=True).create(environment)
+        venv.EnvBuilder(with_pip=True).create(environment)
         python = environment / ("Scripts/python.exe" if sys.platform == "win32" else "bin/python")
         subprocess.run([
-            str(python), "-m", "pip", "install", "--no-deps", "--force-reinstall", str(wheel),
+            # The wheel's declared dependencies (cryptography) come from the index, which
+            # also proves they are declared; the caller's site-packages are not visible.
+            str(python), "-m", "pip", "install", str(wheel),
         ], cwd=directory, check=True)
         probe = """
 import json

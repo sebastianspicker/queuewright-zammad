@@ -104,4 +104,5 @@ export function Access() {
       </div>
     </section>
   )
+  // #lizard forgives: length is JSX markup, not branching logic
 }

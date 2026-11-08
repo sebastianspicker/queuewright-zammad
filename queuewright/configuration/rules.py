@@ -51,7 +51,7 @@ def _reject_url_values(value: Any, label: str = "configuration") -> None:
     elif isinstance(value, list):
         for index, child in enumerate(value):
             _reject_url_values(child, f"{label}[{index}]")
-    elif isinstance(value, str) and re.search(r"\b(?:https?|wss?)://", value, re.IGNORECASE):
+    elif isinstance(value, str) and "://" in value:
         _fail(f"{label} must not contain a URL")
 
 

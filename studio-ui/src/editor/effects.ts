@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, type Dispatch } from 'react'
-import { api } from '../api/client'
+import { api, LocalServiceUnreachableError } from '../api/client'
 import { saveDraft } from '../persistence/drafts'
 import type { StudioProjectV2 } from '../contracts'
 import { hydrateStudio } from './hydration'
@@ -10,8 +10,7 @@ export const LOCAL_SERVICE_UNREACHABLE = 'Local service unreachable'
 export type CompileRunner = (project: StudioProjectV2, revision: number) => void
 export function compileMessage(error: unknown): string {
   if (error instanceof DOMException && error.name === 'AbortError') return ''
-  // A TypeError here means the loopback API is not listening.
-  if (error instanceof TypeError) return LOCAL_SERVICE_UNREACHABLE
+  if (error instanceof LocalServiceUnreachableError) return LOCAL_SERVICE_UNREACHABLE
   if (error instanceof Error) return error.message
   return 'Loopback compiler unavailable. Exports stay disabled.'
 }

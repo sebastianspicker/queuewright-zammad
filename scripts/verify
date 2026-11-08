@@ -28,7 +28,7 @@ run_lane "Studio Vitest" npm --prefix studio-ui run test
 run_lane "Studio build" npm --prefix studio-ui run build
 run_lane "Studio static demo build" npm --prefix studio-ui run build:demo
 
-build_output="$(mktemp -d -t queuewright-build.XXXXXX)"
+build_output="$(mktemp -d "${TMPDIR:-/tmp}/queuewright-build.XXXXXX")"
 trap 'rm -rf -- "$build_output"' EXIT
 run_lane "Package build" "$python_bin" -m build --outdir "$build_output"
 run_lane "Package archive validation" "$python_bin" - "$build_output" <<'PY'

@@ -6,7 +6,7 @@ import json
 from collections.abc import Mapping
 from typing import Any, BinaryIO
 
-from ..contracts.safety import SafeJsonError, validate_json_depth
+from ..contracts.safety import SafeJsonError, reject_duplicate_keys, validate_json_depth
 
 
 def read_json_body(
@@ -32,7 +32,7 @@ def read_json_body(
     if len(raw) != length:
         return None, (400, error("invalid_request", "body", "request body is incomplete"))
     try:
-        value = json.loads(raw.decode("utf-8"))
+        value = json.loads(raw.decode("utf-8"), object_pairs_hook=reject_duplicate_keys)
         validate_json_depth(value, "body")
         return value, None
     except SafeJsonError as failure:
